@@ -61,39 +61,31 @@
   }
 
   .side-select {
-    position: absolute;
-    right: 14px;
-    bottom: 14px;
-    z-index: 2;
     display: flex;
-    gap: 6px;
+    gap: 8px;
     align-items: center;
-    padding: 6px 10px;
-    background: rgba(0, 0, 0, 0.55);
-    border: 1px solid rgba(255, 255, 255, 0.35);
   }
 
   .side-select span {
-    font-size: 0.66rem;
+    font-size: 0.78rem;
     text-transform: uppercase;
-    opacity: 0.75;
-    color: #fff;
+    opacity: 0.7;
   }
 
   .side-btn {
     font-family: inherit;
-    font-size: 0.72rem;
-    padding: 4px 10px;
-    border: 1.5px solid rgba(255, 255, 255, 0.6);
+    font-size: 0.8rem;
+    padding: 6px 12px;
+    border: 1.5px solid var(--window-border);
     background: transparent;
-    color: #fff;
+    color: var(--ink);
     cursor: pointer;
     letter-spacing: 0.04em;
   }
 
   .side-btn.active {
-    background: #fff;
-    color: #000;
+    background: var(--window-border);
+    color: var(--grid-bg);
   }
 
   .scoreboard {
@@ -139,12 +131,23 @@
     accent-color: var(--accent);
   }
 
+  .game-column {
+    display: inline-flex;
+    flex-direction: column;
+    order: 1;
+  }
+
   .game-window {
     position: relative;
     border: 6px solid var(--window-border);
     background: #000;
     line-height: 0;
-    order: 1;
+  }
+
+  .game-footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 10px;
   }
 
   canvas {
@@ -207,16 +210,20 @@
       <span class="label">Paddle</span>
       <input type="range" class="vertical-slider" id="paddleSlider" min="0" max="1000" value="500">
     </div>
-    <div class="game-window">
-      <canvas id="pongCanvas" width="800" height="500"></canvas>
-      <div class="side-select">
-        <span>Play as:</span>
-        <button class="side-btn active" id="btnLeft" type="button">Left</button>
-        <button class="side-btn" id="btnRight" type="button">Right</button>
+    <div class="game-column">
+      <div class="game-window">
+        <canvas id="pongCanvas" width="800" height="500"></canvas>
+        <div class="game-over-overlay" id="gameOverOverlay">
+          <div class="status-line" id="statusLine"></div>
+          <button class="restart-btn" id="restartBtn" type="button">Play Again</button>
+        </div>
       </div>
-      <div class="game-over-overlay" id="gameOverOverlay">
-        <div class="status-line" id="statusLine"></div>
-        <button class="restart-btn" id="restartBtn" type="button">Play Again</button>
+      <div class="game-footer">
+        <div class="side-select">
+          <span>Play as:</span>
+          <button class="side-btn active" id="btnLeft" type="button">Left</button>
+          <button class="side-btn" id="btnRight" type="button">Right</button>
+        </div>
       </div>
     </div>
   </div>
