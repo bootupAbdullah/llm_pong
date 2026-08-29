@@ -61,31 +61,39 @@
   }
 
   .side-select {
+    position: absolute;
+    right: 14px;
+    bottom: 14px;
+    z-index: 2;
     display: flex;
-    gap: 8px;
+    gap: 6px;
     align-items: center;
+    padding: 6px 10px;
+    background: rgba(0, 0, 0, 0.55);
+    border: 1px solid rgba(255, 255, 255, 0.35);
   }
 
   .side-select span {
-    font-size: 0.78rem;
+    font-size: 0.66rem;
     text-transform: uppercase;
-    opacity: 0.7;
+    opacity: 0.75;
+    color: #fff;
   }
 
   .side-btn {
     font-family: inherit;
-    font-size: 0.8rem;
-    padding: 6px 12px;
-    border: 1.5px solid var(--window-border);
+    font-size: 0.72rem;
+    padding: 4px 10px;
+    border: 1.5px solid rgba(255, 255, 255, 0.6);
     background: transparent;
-    color: var(--ink);
+    color: #fff;
     cursor: pointer;
     letter-spacing: 0.04em;
   }
 
   .side-btn.active {
-    background: var(--window-border);
-    color: var(--grid-bg);
+    background: #fff;
+    color: #000;
   }
 
   .scoreboard {
@@ -187,11 +195,6 @@
   <p class="subtitle">Phase 1 — game skeleton</p>
 
   <div class="controls-bar">
-    <div class="side-select">
-      <span>Play as:</span>
-      <button class="side-btn active" id="btnLeft" type="button">Left</button>
-      <button class="side-btn" id="btnRight" type="button">Right</button>
-    </div>
     <div class="scoreboard">
       <span id="leftScoreLabel">You: 0</span>
       <span id="rightScoreLabel">Bot: 0</span>
@@ -206,6 +209,11 @@
     </div>
     <div class="game-window">
       <canvas id="pongCanvas" width="800" height="500"></canvas>
+      <div class="side-select">
+        <span>Play as:</span>
+        <button class="side-btn active" id="btnLeft" type="button">Left</button>
+        <button class="side-btn" id="btnRight" type="button">Right</button>
+      </div>
       <div class="game-over-overlay" id="gameOverOverlay">
         <div class="status-line" id="statusLine"></div>
         <button class="restart-btn" id="restartBtn" type="button">Play Again</button>
