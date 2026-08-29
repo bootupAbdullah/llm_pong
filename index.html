@@ -132,6 +132,7 @@
   }
 
   .game-window {
+    position: relative;
     border: 6px solid var(--window-border);
     background: #000;
     line-height: 0;
@@ -143,26 +144,40 @@
     background: #000;
   }
 
+  .game-over-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    background: rgba(0, 0, 0, 0.72);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease;
+  }
+
+  .game-over-overlay.visible {
+    opacity: 1;
+    visibility: visible;
+  }
+
   .status-line {
-    min-height: 1.2em;
-    font-size: 0.85rem;
+    font-size: 1.1rem;
     letter-spacing: 0.05em;
     text-align: center;
+    color: #fff;
   }
 
   .restart-btn {
     font-family: inherit;
     font-size: 0.8rem;
     padding: 6px 14px;
-    border: 1.5px solid var(--window-border);
+    border: 1.5px solid #fff;
     background: transparent;
-    color: var(--ink);
+    color: #fff;
     cursor: pointer;
-    display: none;
-  }
-
-  .restart-btn.visible {
-    display: inline-block;
   }
 </style>
 </head>
@@ -191,11 +206,12 @@
     </div>
     <div class="game-window">
       <canvas id="pongCanvas" width="800" height="500"></canvas>
+      <div class="game-over-overlay" id="gameOverOverlay">
+        <div class="status-line" id="statusLine"></div>
+        <button class="restart-btn" id="restartBtn" type="button">Play Again</button>
+      </div>
     </div>
   </div>
-
-  <div class="status-line" id="statusLine"></div>
-  <button class="restart-btn" id="restartBtn" type="button">Play Again</button>
 </div>
 
 <script>
@@ -223,6 +239,7 @@
   const rightScoreLabel = document.getElementById('rightScoreLabel');
   const statusLine = document.getElementById('statusLine');
   const restartBtn = document.getElementById('restartBtn');
+  const gameOverOverlay = document.getElementById('gameOverOverlay');
 
   let playerSide = 'left'; // 'left' or 'right'
 
@@ -252,7 +269,7 @@
     right.prevY = right.y;
     updateScoreLabels();
     statusLine.textContent = '';
-    restartBtn.classList.remove('visible');
+    gameOverOverlay.classList.remove('visible');
     running = true;
     serveBall(Math.random() < 0.5 ? 'left' : 'right');
     lastTime = null;
@@ -370,7 +387,7 @@
     running = false;
     const youWon = winningSide === playerSide;
     statusLine.textContent = youWon ? 'You win!' : 'Bot wins!';
-    restartBtn.classList.add('visible');
+    gameOverOverlay.classList.add('visible');
   }
 
   function draw() {
