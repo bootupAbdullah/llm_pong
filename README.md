@@ -1,0 +1,104 @@
+# LLM Pong
+
+A browser-based Pong game that a human plays against a bot, built as the
+foundation for a longer experiment: layering a **locally-hosted LLM** on top of
+live gameplay so the machine can watch how you play and respond to it — adaptive
+difficulty, running commentary, and shifts in strategy driven by your real
+measured behaviour rather than scripted rules.
+
+The game is being built in deliberate, self-contained phases. Each phase is small,
+reviewed, and dependency-free until its complexity actually justifies new tooling.
+
+---
+
+## Vision
+
+The end state is a web-facing Pong match where:
+
+- A human plays against a bot paddle.
+- Player metrics are measured every frame — reaction time, positional accuracy,
+  miss streaks, movement patterns, paddle velocity.
+- A local LLM (Ollama on a home server, `akd-server1`, running `qwen2.5:3b` /
+  `qwen2.5:7b`) consumes those metrics live and produces adaptive commentary and
+  strategy — reacting to *how* you play, not just the score.
+- The bot's difficulty adapts to keep matches competitive.
+
+None of the LLM or metrics layers exist yet. What exists today is the game
+skeleton every later phase attaches to.
+
+---
+
+## Current status — Phase 1: game skeleton
+
+A single self-contained [`index.html`](index.html): HTML + CSS + JS, no build
+step, no server, no dependencies. Open it in a browser and play.
+
+<!-- Add the first-iteration screenshot at the path below -->
+![Phase 1 gameplay](images/screenshots/phase-1/gameplay.png)
+
+What Phase 1 delivers:
+
+- **Canvas Pong** — ball physics, wall and paddle bounces, angle-off-paddle
+  control, gradual ball speed-up per rally, first-to-11 win condition.
+- **Player paddle** — driven by an **external vertical slider** outside the game
+  window. The slider sets an **absolute** paddle position (not velocity). Its
+  position is sampled once per frame in a single spot in the loop, so paddle
+  velocity `(y - prevY) / dt` can be derived later without rework.
+- **Side selection** — play as the left or right paddle; the slider moves to the
+  matching side.
+- **Bot paddle** — a fixed heuristic: track the ball's y-position, move toward it,
+  capped at a max speed. No adaptation, no metrics, no difficulty tuning.
+- **Blueprint visual design** — architectural-drafting-paper grid background, a
+  centered bordered game window, black playfield with white paddles and ball.
+
+### Running it
+
+Open [`index.html`](index.html) directly in any modern browser. No install, no
+server. Pick a side, drag the slider, first to 11 wins.
+
+---
+
+## Roadmap
+
+| Phase | Focus | Adds |
+|-------|-------|------|
+| **1** ✅ | Game skeleton | Canvas Pong, slider-controlled paddle, side selection, heuristic bot, blueprint styling |
+| **2** | Metrics | Per-frame capture of reaction time, positional accuracy, miss streaks, movement patterns, paddle velocity — recorded, not yet acted on. Likely the point TypeScript is reconsidered as game state grows. |
+| **3** | Adaptive bot | Rule-based difficulty adjustment driven by Phase 2 metrics — bot speed, tracking error, and anticipation tuned to keep matches close. |
+| **4** | LLM layer | Ollama integration on `akd-server1`. Live metrics summarised and sent to `qwen2.5`; model returns commentary and strategy hints. Request/response shapes defined here. |
+| **5** | Web frontend & deploy | Hosting, the surrounding site (landing, sign-up, dashboards), accounts/sessions. Point Tailwind is reconsidered if UI grows past the game window. |
+
+Each phase gets its own handoff spec before implementation begins.
+
+---
+
+## Tech stack
+
+Plain HTML / CSS / JS for Phase 1 — chosen because it needs no build pipeline,
+opens directly in a browser, and matches the project's preference for small,
+confirmed, dependency-free steps before adding tooling the code's complexity
+doesn't yet justify.
+
+- **TypeScript** — deferred. Real value once game state gets complex (Phase 2+
+  metrics objects, Phase 3 bot-parameter structs, Phase 4 LLM message shapes), but
+  it needs a build step. Reconsider at Phase 2–3.
+- **Tailwind** — deferred. Most useful across many UI elements sharing a spacing
+  and colour system. Phase 1's styling is compact enough that hand-written CSS is
+  simpler. Reconsider at Phase 5 if the frontend grows beyond the game window.
+
+---
+
+## Repository layout
+
+```
+llm_pong/
+├── index.html                     Phase 1 game — the whole thing
+├── images/
+│   └── screenshots/
+│       └── phase-1/                first-iteration screenshots
+├── README.md
+└── LICENSE
+```
+
+`images/` holds all public and project-facing images; screenshots are grouped by
+phase under `images/screenshots/`.
