@@ -344,7 +344,7 @@
 
   .game-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     gap: 20px;
   }
 
@@ -352,7 +352,12 @@
     display: flex;
     flex-direction: column;
     align-items: center;
+    justify-content: center;
     gap: 6px;
+    /* matches .game-window's rendered height (500px canvas + 6px border
+       on each side) so the slider centers against the canvas alone, not
+       the taller column below it (footer + control-mode picker) */
+    height: 512px;
     order: 0;
   }
 
