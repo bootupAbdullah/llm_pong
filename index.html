@@ -84,6 +84,18 @@
     letter-spacing: 0.04em;
   }
 
+  .pause-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 10px;
+    margin-left: 4px;
+  }
+
+  .pause-btn:hover {
+    background: rgba(38, 65, 92, 0.08);
+  }
+
   .side-btn.active {
     background: var(--window-border);
     color: var(--grid-bg);
@@ -159,10 +171,24 @@
   canvas {
     display: block;
     background: #000;
+    user-select: none;
   }
 
   canvas.drag-active {
     cursor: ns-resize;
+  }
+
+  .paused-text {
+    font-size: 2.1rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #fff;
+    animation: pulse-size 1.8s ease-in-out infinite;
+  }
+
+  @keyframes pulse-size {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.18); }
   }
 
   .control-mode-section {
@@ -350,12 +376,21 @@
           <div class="status-line" id="statusLine"></div>
           <button class="restart-btn" id="restartBtn" type="button">Play Again</button>
         </div>
+        <div class="game-over-overlay" id="pauseOverlay">
+          <div class="paused-text">Paused</div>
+        </div>
       </div>
       <div class="game-footer">
         <div class="side-select">
           <span>Play as:</span>
           <button class="side-btn active" id="btnLeft" type="button">Left</button>
           <button class="side-btn" id="btnRight" type="button">Right</button>
+          <button class="side-btn pause-btn" id="pauseBtn" type="button" aria-label="Pause">
+            <svg id="pauseIcon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="6" y="4" width="4" height="16" rx="1"/>
+              <rect x="14" y="4" width="4" height="16" rx="1"/>
+            </svg>
+          </button>
         </div>
       </div>
 
@@ -423,11 +458,17 @@
   const statusLine = document.getElementById('statusLine');
   const restartBtn = document.getElementById('restartBtn');
   const gameOverOverlay = document.getElementById('gameOverOverlay');
+  const pauseOverlay = document.getElementById('pauseOverlay');
+  const pauseBtn = document.getElementById('pauseBtn');
   const modeButtons = document.querySelectorAll('.mode-card');
+
+  const PAUSE_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>';
+  const PLAY_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4 L20 12 L7 20 Z"/></svg>';
 
   let playerSide = 'left'; // 'left' or 'right'
   let controlMode = 'slider'; // 'slider' | 'drag' | 'keyboard' — how the player's paddle is driven
   let isDragging = false;
+  let paused = false;
   const keysHeld = { up: false, down: false };
 
   const left = { y: H / 2 - PADDLE_H / 2, prevY: H / 2 - PADDLE_H / 2 };
@@ -457,10 +498,31 @@
     updateScoreLabels();
     statusLine.textContent = '';
     gameOverOverlay.classList.remove('visible');
+    paused = false;
+    pauseOverlay.classList.remove('visible');
+    pauseBtn.innerHTML = PAUSE_ICON;
+    pauseBtn.setAttribute('aria-label', 'Pause');
     running = true;
     serveBall(Math.random() < 0.5 ? 'left' : 'right');
     lastTime = null;
     requestAnimationFrame(loop);
+  }
+
+  function setPaused(next) {
+    paused = next;
+    pauseOverlay.classList.toggle('visible', paused);
+    pauseBtn.innerHTML = paused ? PLAY_ICON : PAUSE_ICON;
+    pauseBtn.setAttribute('aria-label', paused ? 'Resume' : 'Pause');
+    if (!paused) {
+      // resume fresh rather than let a frozen lastTime produce a huge dt spike
+      lastTime = null;
+      requestAnimationFrame(loop);
+    }
+  }
+
+  function togglePause() {
+    if (!running) return; // no pausing once the game has been won
+    setPaused(!paused);
   }
 
   function updateScoreLabels() {
@@ -482,6 +544,11 @@
   btnLeft.addEventListener('click', () => setSide('left'));
   btnRight.addEventListener('click', () => setSide('right'));
   restartBtn.addEventListener('click', resetGame);
+  pauseBtn.addEventListener('click', togglePause);
+  canvas.addEventListener('dblclick', (e) => {
+    e.preventDefault();
+    togglePause();
+  });
 
   function setControlMode(mode) {
     controlMode = mode;
@@ -669,7 +736,7 @@
   }
 
   function loop(timestamp) {
-    if (!running) return;
+    if (!running || paused) return;
     if (lastTime === null) lastTime = timestamp;
     const dt = Math.min((timestamp - lastTime) / 1000, 0.033);
     lastTime = timestamp;
