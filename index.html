@@ -45,6 +45,13 @@
 
   * { box-sizing: border-box; }
 
+  /* Text size: everything on the page is sized in rem, so scaling the
+     root font-size scales all of it together -- no need to touch each
+     rule individually. Kept modest so text doesn't overflow the
+     fixed-width boxes (mode-picker cards, settings panel, etc.). */
+  html[data-text-size="large"] { font-size: 114%; }
+  html[data-text-size="xlarge"] { font-size: 128%; }
+
   html, body {
     margin: 0;
     padding: 0;
@@ -197,6 +204,44 @@
     border: 1px solid rgba(0, 0, 0, 0.15);
     flex-shrink: 0;
   }
+
+  .settings-divider {
+    height: 1px;
+    background: rgba(38, 65, 92, 0.15);
+    margin: 6px 0;
+  }
+
+  .text-size-row {
+    display: flex;
+    gap: 6px;
+  }
+
+  .text-size-option {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 0;
+    border: 1px solid var(--window-border);
+    background: transparent;
+    font-family: inherit;
+    color: var(--ink);
+    cursor: pointer;
+    line-height: 1;
+  }
+
+  .text-size-option:hover {
+    background: rgba(38, 65, 92, 0.06);
+  }
+
+  .text-size-option.active {
+    background: var(--window-border);
+    color: var(--grid-bg);
+  }
+
+  .text-size-option[data-size="normal"] { font-size: 0.7rem; }
+  .text-size-option[data-size="large"] { font-size: 0.9rem; }
+  .text-size-option[data-size="xlarge"] { font-size: 1.1rem; }
 
   .controls-bar {
     display: flex;
@@ -521,6 +566,13 @@
   <button class="theme-option" data-theme="violet" type="button">
     <span class="theme-swatch" style="background:#6630b0;"></span>Violet
   </button>
+  <div class="settings-divider"></div>
+  <div class="settings-panel-label">Text Size</div>
+  <div class="text-size-row">
+    <button class="text-size-option active" data-size="normal" type="button" aria-label="Normal text size">A</button>
+    <button class="text-size-option" data-size="large" type="button" aria-label="Large text size">A</button>
+    <button class="text-size-option" data-size="xlarge" type="button" aria-label="Extra large text size">A</button>
+  </div>
 </div>
 
 <div class="social-links">
@@ -657,6 +709,7 @@
   const settingsTrigger = document.getElementById('settingsTrigger');
   const settingsPanel = document.getElementById('settingsPanel');
   const themeOptions = document.querySelectorAll('.theme-option');
+  const textSizeOptions = document.querySelectorAll('.text-size-option');
 
   const PAUSE_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>';
   const PLAY_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4 L20 12 L7 20 Z"/></svg>';
@@ -962,6 +1015,20 @@
     }
   }
 
+  function applyTextSize(size) {
+    if (size === 'normal') {
+      document.documentElement.removeAttribute('data-text-size');
+    } else {
+      document.documentElement.setAttribute('data-text-size', size);
+    }
+    textSizeOptions.forEach((btn) => btn.classList.toggle('active', btn.dataset.size === size));
+    try {
+      localStorage.setItem('pongTextSize', size);
+    } catch (e) {
+      // localStorage unavailable -- applies for this session only.
+    }
+  }
+
   settingsTrigger.addEventListener('click', () => {
     settingsPanel.classList.toggle('open');
   });
@@ -973,6 +1040,13 @@
     });
   });
 
+  textSizeOptions.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      applyTextSize(btn.dataset.size);
+      settingsPanel.classList.remove('open');
+    });
+  });
+
   document.addEventListener('click', (e) => {
     if (!settingsPanel.contains(e.target) && !settingsTrigger.contains(e.target)) {
       settingsPanel.classList.remove('open');
@@ -980,12 +1054,15 @@
   });
 
   let savedTheme = null;
+  let savedTextSize = null;
   try {
     savedTheme = localStorage.getItem('pongTheme');
+    savedTextSize = localStorage.getItem('pongTextSize');
   } catch (e) {
-    // ignore -- fall back to the default palette
+    // ignore -- fall back to the defaults
   }
   if (savedTheme) applyTheme(savedTheme);
+  if (savedTextSize) applyTextSize(savedTextSize);
 
   setSide('left');
   setControlMode('slider');
