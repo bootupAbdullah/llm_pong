@@ -11,6 +11,7 @@
     --window-border: #26415c;
     --ink: #1c2e40;
     --accent: #2f6fb0;
+    --grid-line-soft: rgba(64, 145, 220, 0.22);
   }
 
   * { box-sizing: border-box; }
@@ -131,6 +132,11 @@
     accent-color: var(--accent);
   }
 
+  .vertical-slider:disabled {
+    opacity: 0.32;
+    cursor: not-allowed;
+  }
+
   .game-column {
     display: inline-flex;
     flex-direction: column;
@@ -153,6 +159,133 @@
   canvas {
     display: block;
     background: #000;
+  }
+
+  canvas.drag-active {
+    cursor: ns-resize;
+  }
+
+  .control-mode-section {
+    margin-top: 20px;
+  }
+
+  .control-mode-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    opacity: 0.6;
+    text-align: center;
+    margin-bottom: 12px;
+  }
+
+  .mode-picker {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+  }
+
+  .mode-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 108px;
+    padding: 14px 8px 12px;
+    border-radius: 16px;
+    border: 1.5px solid var(--window-border);
+    background: #fff;
+    color: var(--ink);
+    font-family: inherit;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+  }
+
+  .mode-card:hover:not(.active) {
+    background: rgba(38, 65, 92, 0.06);
+  }
+
+  .mode-card.active {
+    border-color: var(--accent);
+    border-width: 2px;
+    transform: scale(1.04);
+  }
+
+  .mode-card.active::after {
+    content: "";
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  .icon-badge {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    border: 1px solid rgba(38, 65, 92, 0.18);
+    background-color: rgba(38, 65, 92, 0.04);
+    background-image:
+      linear-gradient(var(--grid-line-soft) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line-soft) 1px, transparent 1px);
+    background-size: 8px 8px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink);
+  }
+
+  .mode-card.active .icon-badge {
+    border-color: rgba(47, 111, 176, 0.35);
+    background-color: rgba(47, 111, 176, 0.08);
+    color: var(--accent);
+  }
+
+  .mode-card .mode-label {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-align: center;
+  }
+
+  .slider-thumb {
+    animation: slide-thumb 2.2s ease-in-out infinite;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  @keyframes slide-thumb {
+    0%, 100% { transform: translateY(-7px); }
+    50% { transform: translateY(7px); }
+  }
+
+  .drag-cursor {
+    animation: bob-cursor 1.8s ease-in-out infinite;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  @keyframes bob-cursor {
+    0%, 100% { transform: translateY(-4px); }
+    50% { transform: translateY(4px); }
+  }
+
+  .key-up {
+    animation: press-pulse 2s ease-in-out infinite;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  .key-down {
+    animation: press-pulse 2s ease-in-out infinite;
+    animation-delay: 1s;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  @keyframes press-pulse {
+    0%, 40%, 100% { opacity: 0.35; }
+    15% { opacity: 1; }
   }
 
   .game-over-overlay {
@@ -225,6 +358,40 @@
           <button class="side-btn" id="btnRight" type="button">Right</button>
         </div>
       </div>
+
+      <div class="control-mode-section">
+        <div class="control-mode-label">Control mode</div>
+        <div class="mode-picker" id="modePicker">
+          <button class="mode-card active" id="modeSlider" type="button" data-mode="slider">
+            <div class="icon-badge">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <line x1="12" y1="2" x2="12" y2="22" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                <rect class="slider-thumb" x="7" y="9" width="10" height="6" rx="1.5" stroke="currentColor" stroke-width="1.6"/>
+              </svg>
+            </div>
+            <span class="mode-label">Slider</span>
+          </button>
+          <button class="mode-card" id="modeDrag" type="button" data-mode="drag">
+            <div class="icon-badge">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path class="drag-cursor" d="M5 3.5 L6.4 18.5 L9.3 14.6 L11.8 20 L13.9 19 L11.4 13.7 L16.2 13.4 Z" fill="currentColor"/>
+              </svg>
+            </div>
+            <span class="mode-label">Click &amp; Drag</span>
+          </button>
+          <button class="mode-card" id="modeKeyboard" type="button" data-mode="keyboard">
+            <div class="icon-badge">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <rect class="key-up" x="2" y="3" width="10" height="9" rx="2" stroke="currentColor" stroke-width="1.6"/>
+                <path class="key-up" d="M4.5 9.3 L7 6.7 L9.5 9.3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                <rect class="key-down" x="12" y="12" width="10" height="9" rx="2" stroke="currentColor" stroke-width="1.6"/>
+                <path class="key-down" d="M14.5 15.7 L17 18.3 L19.5 15.7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </div>
+            <span class="mode-label">Keyboard</span>
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -245,6 +412,7 @@
   const BALL_BASE_SPEED = 320; // px/sec
   const BALL_SPEED_STEP = 18; // px/sec added per paddle hit
   const BALL_MAX_SPEED = 620;
+  const PLAYER_KEY_SPEED = 420; // px/sec, keyboard control mode
 
   const slider = document.getElementById('paddleSlider');
   const gameRow = document.getElementById('gameRow');
@@ -255,8 +423,12 @@
   const statusLine = document.getElementById('statusLine');
   const restartBtn = document.getElementById('restartBtn');
   const gameOverOverlay = document.getElementById('gameOverOverlay');
+  const modeButtons = document.querySelectorAll('.mode-card');
 
   let playerSide = 'left'; // 'left' or 'right'
+  let controlMode = 'slider'; // 'slider' | 'drag' | 'keyboard' — how the player's paddle is driven
+  let isDragging = false;
+  const keysHeld = { up: false, down: false };
 
   const left = { y: H / 2 - PADDLE_H / 2, prevY: H / 2 - PADDLE_H / 2 };
   const right = { y: H / 2 - PADDLE_H / 2, prevY: H / 2 - PADDLE_H / 2 };
@@ -311,6 +483,65 @@
   btnRight.addEventListener('click', () => setSide('right'));
   restartBtn.addEventListener('click', resetGame);
 
+  function setControlMode(mode) {
+    controlMode = mode;
+    modeButtons.forEach((btn) => btn.classList.toggle('active', btn.dataset.mode === mode));
+    slider.disabled = mode !== 'slider';
+    canvas.classList.toggle('drag-active', mode === 'drag');
+    // switching away drops any in-progress input for the old mode so it
+    // can't keep moving the paddle once it's no longer the active source
+    if (mode !== 'drag') isDragging = false;
+    if (mode !== 'keyboard') { keysHeld.up = false; keysHeld.down = false; }
+  }
+
+  modeButtons.forEach((btn) => btn.addEventListener('click', () => setControlMode(btn.dataset.mode)));
+
+  function canvasYToPaddleY(clientY) {
+    const rect = canvas.getBoundingClientRect();
+    const scale = H / rect.height;
+    const y = (clientY - rect.top) * scale;
+    return clamp(y - PADDLE_H / 2, 0, H - PADDLE_H);
+  }
+
+  function dragTo(clientY) {
+    const paddle = playerSide === 'left' ? left : right;
+    paddle.y = canvasYToPaddleY(clientY);
+  }
+
+  canvas.addEventListener('mousedown', (e) => {
+    if (controlMode !== 'drag') return;
+    isDragging = true;
+    dragTo(e.clientY);
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (controlMode !== 'drag' || !isDragging) return;
+    dragTo(e.clientY);
+  });
+  window.addEventListener('mouseup', () => { isDragging = false; });
+
+  canvas.addEventListener('touchstart', (e) => {
+    if (controlMode !== 'drag') return;
+    isDragging = true;
+    dragTo(e.touches[0].clientY);
+    e.preventDefault();
+  }, { passive: false });
+  window.addEventListener('touchmove', (e) => {
+    if (controlMode !== 'drag' || !isDragging) return;
+    dragTo(e.touches[0].clientY);
+    e.preventDefault();
+  }, { passive: false });
+  window.addEventListener('touchend', () => { isDragging = false; });
+
+  window.addEventListener('keydown', (e) => {
+    if (controlMode !== 'keyboard') return;
+    if (e.code === 'ArrowUp' || e.code === 'KeyW') { keysHeld.up = true; e.preventDefault(); }
+    else if (e.code === 'ArrowDown' || e.code === 'KeyS') { keysHeld.down = true; e.preventDefault(); }
+  });
+  window.addEventListener('keyup', (e) => {
+    if (e.code === 'ArrowUp' || e.code === 'KeyW') keysHeld.up = false;
+    else if (e.code === 'ArrowDown' || e.code === 'KeyS') keysHeld.down = false;
+  });
+
   function readSliderPaddleY() {
     // slider value 0..1000, top of slider = 1000 (paddle at top, y=0)
     const maxY = H - PADDLE_H;
@@ -318,12 +549,23 @@
     return maxY - frac * maxY;
   }
 
-  function updatePlayerPaddle() {
+  function updatePlayerPaddle(dt) {
     const paddle = playerSide === 'left' ? left : right;
     paddle.prevY = paddle.y;
     // sampled every frame so velocity can later be derived as
-    // (paddle.y - paddle.prevY) / dt — not used yet in Phase 1.
-    paddle.y = readSliderPaddleY();
+    // (paddle.y - paddle.prevY) / dt — not used yet in Phase 1. That holds
+    // regardless of control mode: slider/drag set paddle.y directly (position),
+    // keyboard integrates a velocity into it — either way this is the one spot
+    // per frame where the active paddle's position for this frame is decided.
+    if (controlMode === 'slider') {
+      paddle.y = readSliderPaddleY();
+    } else if (controlMode === 'keyboard') {
+      let dy = 0;
+      if (keysHeld.up) dy -= PLAYER_KEY_SPEED * dt;
+      if (keysHeld.down) dy += PLAYER_KEY_SPEED * dt;
+      paddle.y = clamp(paddle.y + dy, 0, H - PADDLE_H);
+    }
+    // 'drag' mode: paddle.y is already set by the drag handlers above.
   }
 
   function updateBotPaddle(dt) {
@@ -345,7 +587,7 @@
   }
 
   function step(dt) {
-    updatePlayerPaddle();
+    updatePlayerPaddle(dt);
     updateBotPaddle(dt);
 
     ball.x += ball.vx * dt;
@@ -439,6 +681,7 @@
   }
 
   setSide('left');
+  setControlMode('slider');
   serveBall(Math.random() < 0.5 ? 'left' : 'right');
   requestAnimationFrame(loop);
 })();
