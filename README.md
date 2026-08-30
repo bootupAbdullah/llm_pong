@@ -28,33 +28,45 @@ skeleton every later phase attaches to.
 
 ---
 
-## Current status — Phase 1: game skeleton
+## Current status — Phase 1 complete: game skeleton
 
 A single self-contained [`index.html`](index.html): HTML + CSS + JS, no build
 step, no server, no dependencies. Open it in a browser and play.
 
-<!-- Add the first-iteration screenshot at the path below -->
-![Phase 1 gameplay](images/screenshots/phase-1/gameplay.png)
+![First iteration — slider control only](images/screenshots/phase-1/gameplay.png)
+*First playable iteration: slider-only control, centered title.*
+
+![Phase 1 complete](images/screenshots/phase-1/phase_1_complete.png)
+*Phase 1 as shipped: three control modes, pause, game-over overlay, `llmpong.com` wordmark.*
 
 What Phase 1 delivers:
 
 - **Canvas Pong** — ball physics, wall and paddle bounces, angle-off-paddle
-  control, gradual ball speed-up per rally, first-to-11 win condition.
-- **Player paddle** — driven by an **external vertical slider** outside the game
-  window. The slider sets an **absolute** paddle position (not velocity). Its
-  position is sampled once per frame in a single spot in the loop, so paddle
-  velocity `(y - prevY) / dt` can be derived later without rework.
+  control, gradual ball speed-up per rally, first-to-11 win condition, a
+  game-over overlay with a "Play Again" reset.
+- **Three player-paddle control modes**, switchable live from the mode picker:
+  - **Slider** — an external vertical slider outside the game window sets an
+    **absolute** paddle position (not velocity).
+  - **Click & drag** — grab the paddle directly on the playfield (mouse or touch).
+  - **Keyboard** — arrow keys / `W`·`S` drive the paddle at a fixed speed.
+
+  Whichever mode is active, the player paddle's position for the frame is
+  resolved in a single spot in the game loop, so paddle velocity
+  `(y - prevY) / dt` can be derived later without rework.
 - **Side selection** — play as the left or right paddle; the slider moves to the
   matching side.
+- **Pause** — a pause button beside the side toggle, or double-click the
+  playfield; a pulsing "Paused" overlay while held. Disabled once the game is won.
 - **Bot paddle** — a fixed heuristic: track the ball's y-position, move toward it,
   capped at a max speed. No adaptation, no metrics, no difficulty tuning.
 - **Blueprint visual design** — architectural-drafting-paper grid background, a
-  centered bordered game window, black playfield with white paddles and ball.
+  centered bordered game window, black playfield with white paddles and ball, and
+  an `llmpong.com` wordmark top-left.
 
 ### Running it
 
 Open [`index.html`](index.html) directly in any modern browser. No install, no
-server. Pick a side, drag the slider, first to 11 wins.
+server. Pick a side, choose a control mode, first to 11 wins.
 
 ---
 
@@ -62,7 +74,7 @@ server. Pick a side, drag the slider, first to 11 wins.
 
 | Phase | Focus | Adds |
 |-------|-------|------|
-| **1** ✅ | Game skeleton | Canvas Pong, slider-controlled paddle, side selection, heuristic bot, blueprint styling |
+| **1** ✅ | Game skeleton | Canvas Pong, three control modes (slider / click & drag / keyboard), side selection, pause, game-over overlay, heuristic bot, blueprint styling + wordmark |
 | **2** | Metrics | Per-frame capture of reaction time, positional accuracy, miss streaks, movement patterns, paddle velocity — recorded, not yet acted on. Likely the point TypeScript is reconsidered as game state grows. |
 | **3** | Adaptive bot | Rule-based difficulty adjustment driven by Phase 2 metrics — bot speed, tracking error, and anticipation tuned to keep matches close. |
 | **4** | LLM layer | Ollama integration on `akd-server1`. Live metrics summarised and sent to `qwen2.5`; model returns commentary and strategy hints. Request/response shapes defined here. |
@@ -92,10 +104,12 @@ doesn't yet justify.
 
 ```
 llm_pong/
-├── index.html                     Phase 1 game — the whole thing
+├── index.html                          Phase 1 game — the whole thing
 ├── images/
 │   └── screenshots/
-│       └── phase-1/                first-iteration screenshots
+│       └── phase-1/
+│           ├── gameplay.png            first playable iteration
+│           └── phase_1_complete.png    Phase 1 as shipped
 ├── README.md
 └── LICENSE
 ```
