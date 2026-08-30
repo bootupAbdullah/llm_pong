@@ -40,17 +40,20 @@
     padding: 32px 16px;
   }
 
-  h1 {
-    margin: 0;
-    font-size: 1.4rem;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
+  .wordmark {
+    position: fixed;
+    top: 24px;
+    left: 32px;
+    font-size: 3.1rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    line-height: 1;
+    color: var(--ink);
+    white-space: nowrap;
   }
 
-  .subtitle {
-    margin: -12px 0 0;
-    font-size: 0.8rem;
-    opacity: 0.75;
+  .wordmark .tld {
+    color: var(--accent);
   }
 
   .controls-bar {
@@ -354,10 +357,8 @@
 </style>
 </head>
 <body>
+<div class="wordmark">llmpong<span class="tld">.com</span></div>
 <div class="page">
-  <h1>LLM Pong</h1>
-  <p class="subtitle">Phase 1 — game skeleton</p>
-
   <div class="controls-bar">
     <div class="scoreboard">
       <span id="leftScoreLabel">You: 0</span>
