@@ -36,8 +36,10 @@ step, no server, no dependencies. Open it in a browser and play.
 ![First iteration — slider control only](images/screenshots/phase-1/gameplay.png)
 *First playable iteration: slider-only control, centered title.*
 
-![Phase 1 complete](images/screenshots/phase-1/phase_1_complete.png)
-*Phase 1 as shipped: three control modes, pause, game-over overlay, `llmpong.com` wordmark.*
+![Phase 1 complete](images/screenshots/phase-1/checkpoint-2.png)
+*Phase 1 as shipped, after the branding pass: three control modes, pause,
+game-over overlay, `llmpong.com` wordmark top-left, social/personal links
+bottom-right.*
 
 What Phase 1 delivers:
 
@@ -60,8 +62,11 @@ What Phase 1 delivers:
 - **Bot paddle** — a fixed heuristic: track the ball's y-position, move toward it,
   capped at a max speed. No adaptation, no metrics, no difficulty tuning.
 - **Blueprint visual design** — architectural-drafting-paper grid background, a
-  centered bordered game window, black playfield with white paddles and ball, and
-  an `llmpong.com` wordmark top-left.
+  centered bordered game window, black playfield with white paddles and ball.
+- **Branding** — an `llmpong.com` wordmark fixed top-left (the domain is owned),
+  and social/personal links (GitHub, LinkedIn, Bluesky, `akddev.co`) fixed
+  bottom-right for diagonal balance. Both use inline SVG / an embedded data-URI
+  favicon, so the file stays fully self-contained.
 
 ### Running it
 
@@ -106,10 +111,12 @@ doesn't yet justify.
 llm_pong/
 ├── index.html                          Phase 1 game — the whole thing
 ├── images/
+│   ├── icons/                          favicon source + embedded PNG
 │   └── screenshots/
 │       └── phase-1/
 │           ├── gameplay.png            first playable iteration
-│           └── phase_1_complete.png    Phase 1 as shipped
+│           ├── phase_1_complete.png    feature set, pre-branding
+│           └── checkpoint-2.png        current — post branding pass
 ├── README.md
 └── LICENSE
 ```
