@@ -138,17 +138,55 @@
     color: var(--grid-bg);
   }
 
-  .scoreboard {
+  .scoreboard-block {
     display: flex;
-    gap: 20px;
-    font-size: 1rem;
-    letter-spacing: 0.05em;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
   }
 
-  .scoreboard .win-note {
-    font-size: 0.72rem;
+  .scoreboard {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 10px 24px;
+    border: 1.5px solid var(--window-border);
+    background: rgba(38, 65, 92, 0.03);
+  }
+
+  .score-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-width: 56px;
+  }
+
+  .score-name {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
     opacity: 0.65;
-    align-self: center;
+  }
+
+  .score-value {
+    font-size: 1.7rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--ink);
+  }
+
+  .score-sep {
+    width: 1px;
+    height: 28px;
+    background: rgba(38, 65, 92, 0.25);
+  }
+
+  .win-note {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    opacity: 0.55;
   }
 
   .game-row {
@@ -419,9 +457,18 @@
 
 <div class="page">
   <div class="controls-bar">
-    <div class="scoreboard">
-      <span id="leftScoreLabel">You: 0</span>
-      <span id="rightScoreLabel">Bot: 0</span>
+    <div class="scoreboard-block">
+      <div class="scoreboard">
+        <div class="score-block">
+          <span class="score-name" id="leftScoreName">You</span>
+          <span class="score-value" id="leftScoreValue">0</span>
+        </div>
+        <div class="score-sep"></div>
+        <div class="score-block">
+          <span class="score-name" id="rightScoreName">Bot</span>
+          <span class="score-value" id="rightScoreValue">0</span>
+        </div>
+      </div>
       <span class="win-note">First to 11</span>
     </div>
   </div>
@@ -516,8 +563,10 @@
   const gameRow = document.getElementById('gameRow');
   const btnLeft = document.getElementById('btnLeft');
   const btnRight = document.getElementById('btnRight');
-  const leftScoreLabel = document.getElementById('leftScoreLabel');
-  const rightScoreLabel = document.getElementById('rightScoreLabel');
+  const leftScoreName = document.getElementById('leftScoreName');
+  const leftScoreValue = document.getElementById('leftScoreValue');
+  const rightScoreName = document.getElementById('rightScoreName');
+  const rightScoreValue = document.getElementById('rightScoreValue');
   const statusLine = document.getElementById('statusLine');
   const restartBtn = document.getElementById('restartBtn');
   const gameOverOverlay = document.getElementById('gameOverOverlay');
@@ -589,10 +638,11 @@
   }
 
   function updateScoreLabels() {
-    const youLabel = playerSide === 'left' ? 'You' : 'Bot';
-    // labels are fixed to physical side (left/right), not to who is "you"
-    leftScoreLabel.textContent = (playerSide === 'left' ? 'You' : 'Bot') + ': ' + score.left;
-    rightScoreLabel.textContent = (playerSide === 'right' ? 'You' : 'Bot') + ': ' + score.right;
+    // names are fixed to physical side (left/right), not to who is "you"
+    leftScoreName.textContent = playerSide === 'left' ? 'You' : 'Bot';
+    rightScoreName.textContent = playerSide === 'right' ? 'You' : 'Bot';
+    leftScoreValue.textContent = score.left;
+    rightScoreValue.textContent = score.right;
   }
 
   function setSide(side) {
