@@ -14,7 +14,43 @@
     --grid-line-soft: rgba(64, 145, 220, 0.22);
   }
 
+  /* Alternate color palettes -- same blueprint concept, different hue.
+     Each keeps the default palette's saturation/lightness structure,
+     just rotated to a different hue, so none of them read as more
+     "finished" than the others. --grid-bg stays white in every palette;
+     only the ink/line/accent hue changes. */
+  :root[data-theme="yellow"] {
+    --grid-line: rgba(217, 180, 69, 0.4);
+    --grid-line-soft: rgba(217, 180, 69, 0.22);
+    --window-border: #5a4d26;
+    --ink: #433a1e;
+    --accent: #b09030;
+  }
+
+  :root[data-theme="green"] {
+    --grid-line: rgba(69, 217, 130, 0.4);
+    --grid-line-soft: rgba(69, 217, 130, 0.22);
+    --window-border: #265a3b;
+    --ink: #1e432d;
+    --accent: #30b066;
+  }
+
+  :root[data-theme="violet"] {
+    --grid-line: rgba(130, 69, 217, 0.4);
+    --grid-line-soft: rgba(130, 69, 217, 0.22);
+    --window-border: #3b265a;
+    --ink: #2d1e43;
+    --accent: #6630b0;
+  }
+
   * { box-sizing: border-box; }
+
+  /* Text size: everything on the page is sized in rem, so scaling the
+     root font-size scales all of it together -- no need to touch each
+     rule individually. Kept modest so text doesn't overflow the
+     fixed-width boxes (mode-picker cards, settings panel, etc.). */
+  html[data-text-size="large"] { font-size: 114%; }
+  html[data-text-size="xlarge"] { font-size: 128%; }
 
   html, body {
     margin: 0;
@@ -89,6 +125,123 @@
     object-fit: contain;
     border-radius: 3px;
   }
+
+  .settings-trigger {
+    position: fixed;
+    top: 24px;
+    right: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: 1.5px solid var(--window-border);
+    background: #fff;
+    color: var(--ink);
+    cursor: pointer;
+  }
+
+  .settings-trigger:hover {
+    background: rgba(38, 65, 92, 0.08);
+  }
+
+  .settings-trigger svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .settings-panel {
+    position: fixed;
+    top: 64px;
+    right: 32px;
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px;
+    border: 1.5px solid var(--window-border);
+    background: #fff;
+    min-width: 130px;
+  }
+
+  .settings-panel.open {
+    display: flex;
+  }
+
+  .settings-panel-label {
+    font-size: 0.64rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    opacity: 0.6;
+    margin-bottom: 2px;
+  }
+
+  .theme-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 6px;
+    border: 1px solid transparent;
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.74rem;
+    color: var(--ink);
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .theme-option:hover {
+    background: rgba(38, 65, 92, 0.06);
+  }
+
+  .theme-option.active {
+    border-color: var(--window-border);
+  }
+
+  .theme-swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    flex-shrink: 0;
+  }
+
+  .settings-divider {
+    height: 1px;
+    background: rgba(38, 65, 92, 0.15);
+    margin: 6px 0;
+  }
+
+  .text-size-row {
+    display: flex;
+    gap: 6px;
+  }
+
+  .text-size-option {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 0;
+    border: 1px solid var(--window-border);
+    background: transparent;
+    font-family: inherit;
+    color: var(--ink);
+    cursor: pointer;
+    line-height: 1;
+  }
+
+  .text-size-option:hover {
+    background: rgba(38, 65, 92, 0.06);
+  }
+
+  .text-size-option.active {
+    background: var(--window-border);
+    color: var(--grid-bg);
+  }
+
+  .text-size-option[data-size="normal"] { font-size: 0.7rem; }
+  .text-size-option[data-size="large"] { font-size: 0.9rem; }
+  .text-size-option[data-size="xlarge"] { font-size: 1.1rem; }
 
   .controls-bar {
     display: flex;
@@ -431,6 +584,35 @@
 <body>
 <div class="wordmark">llmpong<span class="tld">.com</span></div>
 
+<button class="settings-trigger" id="settingsTrigger" type="button" aria-label="Settings">
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6"/>
+    <path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.56 1.56M16.84 16.84l1.56 1.56M18.4 5.6l-1.56 1.56M7.16 16.84l-1.56 1.56" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+  </svg>
+</button>
+<div class="settings-panel" id="settingsPanel">
+  <div class="settings-panel-label">Theme</div>
+  <button class="theme-option active" data-theme="blue" type="button">
+    <span class="theme-swatch" style="background:#3072b0;"></span>Blue
+  </button>
+  <button class="theme-option" data-theme="yellow" type="button">
+    <span class="theme-swatch" style="background:#b09030;"></span>Yellow
+  </button>
+  <button class="theme-option" data-theme="green" type="button">
+    <span class="theme-swatch" style="background:#30b066;"></span>Green
+  </button>
+  <button class="theme-option" data-theme="violet" type="button">
+    <span class="theme-swatch" style="background:#6630b0;"></span>Violet
+  </button>
+  <div class="settings-divider"></div>
+  <div class="settings-panel-label">Text Size</div>
+  <div class="text-size-row">
+    <button class="text-size-option active" data-size="normal" type="button" aria-label="Normal text size">A</button>
+    <button class="text-size-option" data-size="large" type="button" aria-label="Large text size">A</button>
+    <button class="text-size-option" data-size="xlarge" type="button" aria-label="Extra large text size">A</button>
+  </div>
+</div>
+
 <div class="social-links">
   <a href="https://github.com/bootupAbdullah/llm_pong" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -573,6 +755,10 @@
   const pauseOverlay = document.getElementById('pauseOverlay');
   const pauseBtn = document.getElementById('pauseBtn');
   const modeButtons = document.querySelectorAll('.mode-card');
+  const settingsTrigger = document.getElementById('settingsTrigger');
+  const settingsPanel = document.getElementById('settingsPanel');
+  const themeOptions = document.querySelectorAll('.theme-option');
+  const textSizeOptions = document.querySelectorAll('.text-size-option');
 
   const PAUSE_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>';
   const PLAY_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4 L20 12 L7 20 Z"/></svg>';
@@ -863,6 +1049,70 @@
 
     requestAnimationFrame(loop);
   }
+
+  function applyTheme(theme) {
+    if (theme === 'blue') {
+      document.documentElement.removeAttribute('data-theme');
+    } else {
+      document.documentElement.setAttribute('data-theme', theme);
+    }
+    themeOptions.forEach((btn) => btn.classList.toggle('active', btn.dataset.theme === theme));
+    try {
+      localStorage.setItem('pongTheme', theme);
+    } catch (e) {
+      // localStorage unavailable (private mode, locked-down settings, etc.) --
+      // the theme still applies for this session, it just won't persist.
+    }
+  }
+
+  function applyTextSize(size) {
+    if (size === 'normal') {
+      document.documentElement.removeAttribute('data-text-size');
+    } else {
+      document.documentElement.setAttribute('data-text-size', size);
+    }
+    textSizeOptions.forEach((btn) => btn.classList.toggle('active', btn.dataset.size === size));
+    try {
+      localStorage.setItem('pongTextSize', size);
+    } catch (e) {
+      // localStorage unavailable -- applies for this session only.
+    }
+  }
+
+  settingsTrigger.addEventListener('click', () => {
+    settingsPanel.classList.toggle('open');
+  });
+
+  themeOptions.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      applyTheme(btn.dataset.theme);
+      settingsPanel.classList.remove('open');
+    });
+  });
+
+  textSizeOptions.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      applyTextSize(btn.dataset.size);
+      settingsPanel.classList.remove('open');
+    });
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!settingsPanel.contains(e.target) && !settingsTrigger.contains(e.target)) {
+      settingsPanel.classList.remove('open');
+    }
+  });
+
+  let savedTheme = null;
+  let savedTextSize = null;
+  try {
+    savedTheme = localStorage.getItem('pongTheme');
+    savedTextSize = localStorage.getItem('pongTextSize');
+  } catch (e) {
+    // ignore -- fall back to the defaults
+  }
+  if (savedTheme) applyTheme(savedTheme);
+  if (savedTextSize) applyTextSize(savedTextSize);
 
   setSide('left');
   setControlMode('slider');
