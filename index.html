@@ -370,7 +370,7 @@
       <input type="range" class="vertical-slider" id="paddleSlider" min="0" max="1000" value="500">
     </div>
     <div class="game-column">
-      <div class="game-window">
+      <div class="game-window" id="gameWindow">
         <canvas id="pongCanvas" width="800" height="500"></canvas>
         <div class="game-over-overlay" id="gameOverOverlay">
           <div class="status-line" id="statusLine"></div>
@@ -434,6 +434,7 @@
 <script>
 (function () {
   const canvas = document.getElementById('pongCanvas');
+  const gameWindow = document.getElementById('gameWindow');
   const ctx = canvas.getContext('2d');
   const W = canvas.width;
   const H = canvas.height;
@@ -545,7 +546,11 @@
   btnRight.addEventListener('click', () => setSide('right'));
   restartBtn.addEventListener('click', resetGame);
   pauseBtn.addEventListener('click', togglePause);
-  canvas.addEventListener('dblclick', (e) => {
+  // bound to the game window, not the canvas: the pause/game-over overlays
+  // sit on top of the canvas when visible, so a canvas-only listener would
+  // never see a double-click land on the "Paused" overlay itself, and
+  // double-clicking again could never resume the game.
+  gameWindow.addEventListener('dblclick', (e) => {
     e.preventDefault();
     togglePause();
   });
