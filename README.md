@@ -36,10 +36,10 @@ step, no server, no dependencies. Open it in a browser and play.
 ![First iteration — slider control only](images/screenshots/phase-1/gameplay.png)
 *First playable iteration: slider-only control, centered title.*
 
-![Phase 1 complete](images/screenshots/phase-1/checkpoint-2.png)
-*Phase 1 as shipped, after the branding pass: three control modes, pause,
-game-over overlay, `llmpong.com` wordmark top-left, social/personal links
-bottom-right.*
+![Phase 1 complete](images/screenshots/phase-1/checkpoint-3.png)
+*Phase 1 as shipped (violet theme shown): three control modes, pause, bordered
+scoreboard readout, `llmpong.com` wordmark top-left, social/personal links
+bottom-right, settings gear top-right (4 colour themes, 3 text sizes).*
 
 What Phase 1 delivers:
 
@@ -59,6 +59,12 @@ What Phase 1 delivers:
   matching side.
 - **Pause** — a pause button beside the side toggle, or double-click the
   playfield; a pulsing "Paused" overlay while held. Disabled once the game is won.
+- **Scoreboard** — a bordered readout panel: uppercase side labels over large
+  score numbers, divider between, "First to 11" caption beneath. Labels are tied
+  to physical side, not to who "you" are.
+- **Settings** — a gear menu top-right with two persisted (`localStorage`)
+  preferences: **Theme** (4 colour palettes — blue / yellow / green / violet) and
+  **Text Size** (normal / large / extra large, scaling the root `rem` size).
 - **Bot paddle** — a fixed heuristic: track the ball's y-position, move toward it,
   capped at a max speed. No adaptation, no metrics, no difficulty tuning.
 - **Blueprint visual design** — architectural-drafting-paper grid background, a
@@ -79,7 +85,7 @@ server. Pick a side, choose a control mode, first to 11 wins.
 
 | Phase | Focus | Adds |
 |-------|-------|------|
-| **1** ✅ | Game skeleton | Canvas Pong, three control modes (slider / click & drag / keyboard), side selection, pause, game-over overlay, heuristic bot, blueprint styling + wordmark |
+| **1** ✅ | Game skeleton | Canvas Pong, three control modes (slider / click & drag / keyboard), side selection, pause, game-over overlay, heuristic bot, bordered scoreboard, blueprint styling, branding, settings menu (themes + text size) |
 | **2** | Metrics | Per-frame capture of reaction time, positional accuracy, miss streaks, movement patterns, paddle velocity — recorded, not yet acted on. Likely the point TypeScript is reconsidered as game state grows. |
 | **3** | Adaptive bot | Rule-based difficulty adjustment driven by Phase 2 metrics — bot speed, tracking error, and anticipation tuned to keep matches close. |
 | **4** | LLM layer | Ollama integration on `akd-server1`. Live metrics summarised and sent to `qwen2.5`; model returns commentary and strategy hints. Request/response shapes defined here. |
@@ -116,7 +122,8 @@ llm_pong/
 │       └── phase-1/
 │           ├── gameplay.png            first playable iteration
 │           ├── phase_1_complete.png    feature set, pre-branding
-│           └── checkpoint-2.png        current — post branding pass
+│           ├── checkpoint-2.png        post branding pass
+│           └── checkpoint-3.png        current — scoreboard + settings menu
 ├── README.md
 └── LICENSE
 ```
