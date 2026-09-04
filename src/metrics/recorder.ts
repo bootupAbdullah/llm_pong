@@ -13,12 +13,21 @@
 //   onPoint(winner, side)  a point was scored             — closes the rally
 //   onGameEnd(winner, ...) the winning point              — finalizes + saves
 //
-// Nothing here computes a derived metric yet — later stages read getFrames()
-// and the rally/leg tree and fill in the numbers.
+// Stage 3 adds derived movement/velocity: per-frame player+bot paddle velocity
+// on each sample, and MoveAccum accumulators fed every frame that finalise into
+// a per-leg MovementSummary and a per-game GameMovementSummary.
 
 import type { Ball, ControlMode, Paddle, Side } from '../types';
 import { getKeySpeedNotch } from '../prefs';
 import { predict, type Prediction } from './predictor';
+import {
+  MOVE_TUNING,
+  feedMove,
+  finalizeGameMove,
+  finalizeMove,
+  newMoveAccum,
+  type MoveAccum,
+} from './movement';
 import type {
   FrameSample,
   GameSummary,
@@ -75,12 +84,35 @@ let gamesSaved = countSavedGames();
 interface Geometry {
   height: number;
   ballR: number;
+  paddleH: number;
   contactPlaneLeft: number;
   contactPlaneRight: number;
 }
 
 let geometry: Geometry | null = null;
 let currentPrediction: Prediction | null = null;
+
+// --- derived movement / velocity ----------------------------------------
+
+let prevPlayerY: number | null = null;
+let prevBotY: number | null = null;
+let prevPlayerVy: number | null = null;
+let lastPlayerVy = 0;
+let lastPlayerVySmoothed = 0;
+let legMove: MoveAccum | null = null;
+let gameMove: MoveAccum = newMoveAccum();
+let restingHist: number[] = new Array(MOVE_TUNING.restingBins).fill(0);
+
+function resetMovement(): void {
+  prevPlayerY = null;
+  prevBotY = null;
+  prevPlayerVy = null;
+  lastPlayerVy = 0;
+  lastPlayerVySmoothed = 0;
+  legMove = null;
+  gameMove = newMoveAccum();
+  restingHist = new Array(MOVE_TUNING.restingBins).fill(0);
+}
 
 /** Called once by the game with the fixed playfield geometry. */
 export function configure(g: Geometry): void {
@@ -99,7 +131,9 @@ function closeLeg(endedBy: LegRecord['endedBy']): void {
   if (!currentLeg) return;
   currentLeg.endT = clockT;
   currentLeg.endedBy = endedBy;
+  if (legMove) currentLeg.movement = finalizeMove(legMove);
   currentLeg = null;
+  legMove = null;
 }
 
 function openLeg(
@@ -117,7 +151,9 @@ function openLeg(
     wallBounces: 0,
     endedBy: null,
     controlMode,
+    movement: null,
   };
+  legMove = newMoveAccum();
   currentRally?.legs.push(currentLeg);
 }
 
@@ -134,12 +170,14 @@ export function onGameStart(playerSide: Side): void {
     playerSideAtEnd: playerSide,
     rallyCount: 0,
     rallies: [],
+    movement: null,
   };
   rallyIndex = -1;
   legIndex = -1;
   currentRally = null;
   currentLeg = null;
   latestScore = { left: 0, right: 0 };
+  resetMovement();
 }
 
 export function onServe(
@@ -212,6 +250,7 @@ export function onGameEnd(
   game.finalScore = { ...score };
   game.playerSideAtEnd = playerSide;
   game.rallyCount = game.rallies.length;
+  game.movement = finalizeGameMove(gameMove, restingHist);
   saveGame(game);
 }
 
@@ -227,6 +266,15 @@ interface FrameState {
 }
 
 export function commitFrame(st: FrameState): void {
+  const dt = clockDt > 0 ? clockDt : 1 / 60;
+
+  const playerDy = prevPlayerY === null ? 0 : st.player.y - prevPlayerY;
+  const botDy = prevBotY === null ? 0 : st.bot.y - prevBotY;
+  const playerVy = prevPlayerY === null ? 0 : playerDy / dt;
+  const botVy = prevBotY === null ? 0 : botDy / dt;
+  const playerAccel =
+    prevPlayerVy === null ? null : (playerVy - prevPlayerVy) / dt;
+
   const sample: FrameSample = {
     t: clockT,
     dt: clockDt,
@@ -236,6 +284,8 @@ export function commitFrame(st: FrameState): void {
     ballVy: st.ball.vy,
     playerY: st.player.y,
     botY: st.bot.y,
+    playerVy,
+    botVy,
     playerSide: st.playerSide,
     controlMode: st.controlMode,
     keySpeedNotch: getKeySpeedNotch(),
@@ -245,6 +295,28 @@ export function commitFrame(st: FrameState): void {
   pushFrame(sample);
   lastFrame = sample;
   latestScore = { ...st.score };
+
+  // movement accumulation (player paddle)
+  const moveFrame = { dy: playerDy, vy: playerVy, accel: playerAccel };
+  if (legMove) feedMove(legMove, moveFrame);
+  feedMove(gameMove, moveFrame);
+  if (geometry) {
+    const centreY = st.player.y + geometry.paddleH / 2;
+    const frac = centreY / geometry.height;
+    const bin = Math.max(
+      0,
+      Math.min(MOVE_TUNING.restingBins - 1, Math.floor(frac * MOVE_TUNING.restingBins)),
+    );
+    restingHist[bin] += 1;
+  }
+
+  prevPlayerY = st.player.y;
+  prevBotY = st.bot.y;
+  prevPlayerVy = playerVy;
+  lastPlayerVy = playerVy;
+  lastPlayerVySmoothed =
+    lastPlayerVySmoothed +
+    MOVE_TUNING.smoothingAlpha * (playerVy - lastPlayerVySmoothed);
 
   if (geometry && currentLeg) {
     currentPrediction = predict({
@@ -316,6 +388,9 @@ export function getSnapshot(): RecorderSnapshot {
     score: { ...latestScore },
     gamesSaved,
     prediction: currentPrediction,
+    playerVy: lastPlayerVy,
+    playerVySmoothed: lastPlayerVySmoothed,
+    currentLegMovement: legMove ? finalizeMove(legMove) : null,
   };
 }
 

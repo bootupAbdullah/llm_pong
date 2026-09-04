@@ -7,6 +7,7 @@
 
 import type { ControlMode, Side } from '../types';
 import type { Prediction } from './predictor';
+import type { GameMovementSummary, MovementSummary } from './movement';
 
 /** One per-frame snapshot of raw game state, taken after the frame's step(). */
 export interface FrameSample {
@@ -22,6 +23,10 @@ export interface FrameSample {
   playerY: number;
   /** Bot paddle top edge, canvas px. */
   botY: number;
+  /** Player paddle velocity this frame, px/sec (0 on the first frame). */
+  playerVy: number;
+  /** Bot paddle velocity this frame, px/sec. */
+  botVy: number;
   playerSide: Side;
   controlMode: ControlMode;
   /** Keyboard-sensitivity notch active this frame (meaningful in keyboard mode). */
@@ -44,6 +49,8 @@ export interface LegRecord {
   wallBounces: number;
   endedBy: 'hit' | 'point' | 'gameEnd' | null;
   controlMode: ControlMode;
+  /** Player paddle movement over this leg. Null until the leg closes. */
+  movement: MovementSummary | null;
 }
 
 /** Serve to point. */
@@ -70,6 +77,8 @@ export interface GameSummary {
   playerSideAtEnd: Side;
   rallyCount: number;
   rallies: RallyRecord[];
+  /** Player paddle movement over the whole game. Null until the game ends. */
+  movement: GameMovementSummary | null;
 }
 
 /** Live view for the debug panel. */
@@ -85,4 +94,9 @@ export interface RecorderSnapshot {
   gamesSaved: number;
   /** Live ball-path prediction to the end the ball is currently heading toward. */
   prediction: Prediction | null;
+  /** Player paddle velocity, px/sec: raw (last frame) and EMA-smoothed. */
+  playerVy: number;
+  playerVySmoothed: number;
+  /** Movement so far this leg (live running totals), or null between legs. */
+  currentLegMovement: MovementSummary | null;
 }

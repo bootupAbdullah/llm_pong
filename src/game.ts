@@ -74,6 +74,7 @@ export function initGame(opts: { debug?: boolean } = {}): void {
   recorder.configure({
     height: H,
     ballR: BALL_R,
+    paddleH: PADDLE_H,
     contactPlaneLeft: PADDLE_MARGIN + PADDLE_W + BALL_R,
     contactPlaneRight: W - PADDLE_MARGIN - PADDLE_W - BALL_R,
   });
