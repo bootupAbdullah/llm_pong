@@ -8,6 +8,7 @@
 // eyeballed as it happens. Refreshes ~10x/sec, not every frame.
 
 import { getSnapshot } from './recorder';
+import { formatRule } from './predictor';
 
 const REFRESH_MS = 100;
 
@@ -62,6 +63,19 @@ export function initDebugPanel(): void {
         }   side ${f.playerSide}`,
         `dt        ${fmt(f.dt * 1000, 1)} ms`,
       );
+    }
+
+    const p = s.prediction;
+    lines.push('');
+    if (p && p.interceptY !== null && p.timeToIntercept !== null) {
+      lines.push(
+        `predict   y ${fmt(p.interceptY)}  in ${fmt(
+          p.timeToIntercept * 1000,
+        )} ms  (${p.bounces} bounce${p.bounces === 1 ? '' : 's'})`,
+        `f(x) v${p.version}  ${formatRule(p)}`,
+      );
+    } else {
+      lines.push('predict   —');
     }
 
     el.textContent = lines.join('\n');

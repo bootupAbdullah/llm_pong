@@ -7,6 +7,7 @@
 import { byId } from './dom';
 import { getKeySpeed, getKeySpeedNotch, setKeySpeedNotch } from './prefs';
 import * as recorder from './metrics/recorder';
+import { drawPrediction } from './metrics/overlay';
 import type { Ball, ControlMode, Paddle, Score, Side } from './types';
 import {
   BALL_BASE_SPEED,
@@ -21,7 +22,8 @@ import {
   WIN_SCORE,
 } from './constants';
 
-export function initGame(): void {
+export function initGame(opts: { debug?: boolean } = {}): void {
+  const debug = opts.debug ?? false;
   const canvas = byId<HTMLCanvasElement>('pongCanvas');
   const gameWindow = byId<HTMLDivElement>('gameWindow');
   const ctx2d = canvas.getContext('2d');
@@ -66,6 +68,15 @@ export function initGame(): void {
 
   let running = true;
   let lastTime: number | null = null;
+
+  // fixed playfield geometry, for the metrics predictor — the x planes where the
+  // ball centre sits when it contacts each paddle (mirror of checkPaddleCollision)
+  recorder.configure({
+    height: H,
+    ballR: BALL_R,
+    contactPlaneLeft: PADDLE_MARGIN + PADDLE_W + BALL_R,
+    contactPlaneRight: W - PADDLE_MARGIN - PADDLE_W - BALL_R,
+  });
 
   function clamp(v: number, min: number, max: number): number {
     return Math.max(min, Math.min(max, v));
@@ -416,6 +427,8 @@ export function initGame(): void {
     ctx.beginPath();
     ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
     ctx.fill();
+
+    if (debug) drawPrediction(ctx, recorder.getCurrentPrediction());
   }
 
   function loop(timestamp: number): void {

@@ -18,6 +18,7 @@
 
 import type { Ball, ControlMode, Paddle, Side } from '../types';
 import { getKeySpeedNotch } from '../prefs';
+import { predict, type Prediction } from './predictor';
 import type {
   FrameSample,
   GameSummary,
@@ -68,6 +69,27 @@ let game: GameSummary | null = null;
 let lastFrame: FrameSample | null = null;
 let latestScore = { left: 0, right: 0 };
 let gamesSaved = countSavedGames();
+
+// --- playfield geometry (for the predictor) ------------------------------
+
+interface Geometry {
+  height: number;
+  ballR: number;
+  contactPlaneLeft: number;
+  contactPlaneRight: number;
+}
+
+let geometry: Geometry | null = null;
+let currentPrediction: Prediction | null = null;
+
+/** Called once by the game with the fixed playfield geometry. */
+export function configure(g: Geometry): void {
+  geometry = g;
+}
+
+export function getCurrentPrediction(): Prediction | null {
+  return currentPrediction;
+}
 
 function otherSide(s: Side): Side {
   return s === 'left' ? 'right' : 'left';
@@ -223,6 +245,23 @@ export function commitFrame(st: FrameState): void {
   pushFrame(sample);
   lastFrame = sample;
   latestScore = { ...st.score };
+
+  if (geometry && currentLeg) {
+    currentPrediction = predict({
+      ballX: st.ball.x,
+      ballY: st.ball.y,
+      ballVx: st.ball.vx,
+      ballVy: st.ball.vy,
+      ballR: geometry.ballR,
+      height: geometry.height,
+      targetX:
+        currentLeg.towardSide === 'left'
+          ? geometry.contactPlaneLeft
+          : geometry.contactPlaneRight,
+    });
+  } else {
+    currentPrediction = null;
+  }
 }
 
 // --- persistence ------------------------------------------------------
@@ -276,6 +315,7 @@ export function getSnapshot(): RecorderSnapshot {
     ralliesThisGame: game ? game.rallies.length : 0,
     score: { ...latestScore },
     gamesSaved,
+    prediction: currentPrediction,
   };
 }
 

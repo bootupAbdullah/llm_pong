@@ -6,6 +6,7 @@
 // hang their results off LegRecord / RallyRecord / GameSummary.
 
 import type { ControlMode, Side } from '../types';
+import type { Prediction } from './predictor';
 
 /** One per-frame snapshot of raw game state, taken after the frame's step(). */
 export interface FrameSample {
@@ -82,4 +83,6 @@ export interface RecorderSnapshot {
   ralliesThisGame: number;
   score: { left: number; right: number };
   gamesSaved: number;
+  /** Live ball-path prediction to the end the ball is currently heading toward. */
+  prediction: Prediction | null;
 }

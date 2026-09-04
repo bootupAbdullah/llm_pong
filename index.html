@@ -892,7 +892,9 @@
   __export(recorder_exports, {
     beginFrame: () => beginFrame,
     commitFrame: () => commitFrame,
+    configure: () => configure,
     getCurrentGame: () => getCurrentGame,
+    getCurrentPrediction: () => getCurrentPrediction,
     getFrames: () => getFrames,
     getSavedGames: () => getSavedGames,
     getSnapshot: () => getSnapshot,
@@ -904,6 +906,81 @@
     onSideChange: () => onSideChange,
     onWallBounce: () => onWallBounce
   });
+
+  // src/metrics/predictor.ts
+  var PREDICTOR_VERSION = 1;
+  var MAX_BOUNCES = 32;
+  function predict(input) {
+    const { ballX, ballVx, ballVy, ballR, height, targetX } = input;
+    const top = ballR;
+    const bottom = height - ballR;
+    const y0 = Math.max(top, Math.min(bottom, input.ballY));
+    const result = {
+      version: PREDICTOR_VERSION,
+      targetX,
+      interceptY: null,
+      timeToIntercept: null,
+      bounces: 0,
+      path: [{ x: ballX, y: y0, t: 0, kind: "start" }],
+      segments: []
+    };
+    const dirToTarget = Math.sign(targetX - ballX);
+    if (ballVx === 0 || dirToTarget === 0 || Math.sign(ballVx) !== dirToTarget) {
+      return result;
+    }
+    const vx = ballVx;
+    let x = ballX;
+    let y = y0;
+    let vy = ballVy;
+    let t = 0;
+    let bounces = 0;
+    for (let i = 0; i <= MAX_BOUNCES; i += 1) {
+      const tToTarget = (targetX - x) / vx;
+      let tToWall = Infinity;
+      if (vy > 0) tToWall = (bottom - y) / vy;
+      else if (vy < 0) tToWall = (top - y) / vy;
+      if (tToTarget <= tToWall) {
+        t += tToTarget;
+        const iy = y + vy * tToTarget;
+        result.path.push({ x: targetX, y: iy, t, kind: "intercept" });
+        result.interceptY = iy;
+        result.timeToIntercept = t;
+        break;
+      }
+      t += tToWall;
+      x += vx * tToWall;
+      y = vy > 0 ? bottom : top;
+      vy = -vy;
+      bounces += 1;
+      result.path.push({ x, y, t, kind: "wall" });
+    }
+    result.bounces = bounces;
+    result.segments = segmentsFromPath(result.path);
+    return result;
+  }
+  function segmentsFromPath(path) {
+    const segments = [];
+    for (let i = 0; i + 1 < path.length; i += 1) {
+      const a = path[i];
+      const b = path[i + 1];
+      const dx = b.x - a.x;
+      if (dx === 0) continue;
+      const slope = (b.y - a.y) / dx;
+      segments.push({ fromX: a.x, toX: b.x, slope, intercept: a.y - slope * a.x });
+    }
+    return segments;
+  }
+  function formatRule(prediction, maxSegments = 2) {
+    if (prediction.segments.length === 0) return "y = —";
+    const parts = prediction.segments.slice(0, maxSegments).map((s) => {
+      const sign = s.intercept < 0 ? "−" : "+";
+      return `y = ${s.slope.toFixed(2)}x ${sign} ${Math.abs(s.intercept).toFixed(0)}`;
+    });
+    if (prediction.segments.length > maxSegments) parts.push("…");
+    return parts.join("  |  ");
+  }
+
+  // src/metrics/recorder.ts
   var FRAME_CAPACITY = 2e4;
   var GAMES_STORAGE_KEY = "pongGames";
   var MAX_SAVED_GAMES = 20;
@@ -933,6 +1010,14 @@
   var lastFrame = null;
   var latestScore = { left: 0, right: 0 };
   var gamesSaved = countSavedGames();
+  var geometry = null;
+  var currentPrediction = null;
+  function configure(g) {
+    geometry = g;
+  }
+  function getCurrentPrediction() {
+    return currentPrediction;
+  }
   function otherSide(s) {
     return s === "left" ? "right" : "left";
   }
@@ -1045,6 +1130,19 @@
     pushFrame(sample);
     lastFrame = sample;
     latestScore = { ...st.score };
+    if (geometry && currentLeg) {
+      currentPrediction = predict({
+        ballX: st.ball.x,
+        ballY: st.ball.y,
+        ballVx: st.ball.vx,
+        ballVy: st.ball.vy,
+        ballR: geometry.ballR,
+        height: geometry.height,
+        targetX: currentLeg.towardSide === "left" ? geometry.contactPlaneLeft : geometry.contactPlaneRight
+      });
+    } else {
+      currentPrediction = null;
+    }
   }
   function countSavedGames() {
     try {
@@ -1087,15 +1185,49 @@
       currentLeg,
       ralliesThisGame: game ? game.rallies.length : 0,
       score: { ...latestScore },
-      gamesSaved
+      gamesSaved,
+      prediction: currentPrediction
     };
   }
   function getCurrentGame() {
     return game;
   }
 
+  // src/metrics/overlay.ts
+  var LINE = "rgba(122, 224, 165, 0.75)";
+  var MARK = "rgba(122, 224, 165, 0.95)";
+  function drawPrediction(ctx, prediction) {
+    if (!prediction || prediction.path.length < 2) return;
+    ctx.save();
+    ctx.strokeStyle = LINE;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 5]);
+    ctx.beginPath();
+    const start = prediction.path[0];
+    ctx.moveTo(start.x, start.y);
+    for (let i = 1; i < prediction.path.length; i += 1) {
+      ctx.lineTo(prediction.path[i].x, prediction.path[i].y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = MARK;
+    for (const p of prediction.path) {
+      if (p.kind === "wall") ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+    }
+    if (prediction.interceptY !== null) {
+      const end = prediction.path[prediction.path.length - 1];
+      ctx.strokeStyle = MARK;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(end.x, end.y, 6, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   // src/game.ts
-  function initGame() {
+  function initGame(opts = {}) {
+    const debug2 = opts.debug ?? false;
     const canvas = byId("pongCanvas");
     const gameWindow = byId("gameWindow");
     const ctx2d = canvas.getContext("2d");
@@ -1132,6 +1264,12 @@
     const ball = { x: W / 2, y: H / 2, vx: 0, vy: 0, r: BALL_R };
     let running = true;
     let lastTime = null;
+    configure({
+      height: H,
+      ballR: BALL_R,
+      contactPlaneLeft: PADDLE_MARGIN + PADDLE_W + BALL_R,
+      contactPlaneRight: W - PADDLE_MARGIN - PADDLE_W - BALL_R
+    });
     function clamp(v, min, max) {
       return Math.max(min, Math.min(max, v));
     }
@@ -1410,6 +1548,7 @@
       ctx.beginPath();
       ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
       ctx.fill();
+      if (debug2) drawPrediction(ctx, getCurrentPrediction());
     }
     function loop(timestamp) {
       if (!running || paused) return;
@@ -1481,6 +1620,18 @@
           `dt        ${fmt(f.dt * 1e3, 1)} ms`
         );
       }
+      const p = s.prediction;
+      lines.push("");
+      if (p && p.interceptY !== null && p.timeToIntercept !== null) {
+        lines.push(
+          `predict   y ${fmt(p.interceptY)}  in ${fmt(
+            p.timeToIntercept * 1e3
+          )} ms  (${p.bounces} bounce${p.bounces === 1 ? "" : "s"})`,
+          `f(x) v${p.version}  ${formatRule(p)}`
+        );
+      } else {
+        lines.push("predict   —");
+      }
       el.textContent = lines.join("\n");
     }
     render();
@@ -1488,9 +1639,10 @@
   }
 
   // src/main.ts
+  var debug = window.location.hash.toLowerCase().includes("debug");
   initSettings();
-  initGame();
-  if (window.location.hash.toLowerCase().includes("debug")) {
+  initGame({ debug });
+  if (debug) {
     initDebugPanel();
   }
   globalThis.__pongMetrics = recorder_exports;

@@ -7,12 +7,14 @@ import { initGame } from './game';
 import * as metrics from './metrics/recorder';
 import { initDebugPanel } from './metrics/debug-panel';
 
+const debug = window.location.hash.toLowerCase().includes('debug');
+
 initSettings();
-initGame();
+initGame({ debug });
 
 // Metrics recording is always on (later phases consume it live). The #debug
-// panel that surfaces it is opt-in via the URL fragment.
-if (window.location.hash.toLowerCase().includes('debug')) {
+// panel and the canvas prediction overlay are opt-in via the URL fragment.
+if (debug) {
   initDebugPanel();
 }
 
