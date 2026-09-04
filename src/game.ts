@@ -232,6 +232,7 @@ export function initGame(opts: { debug?: boolean } = {}): void {
     if (controlMode !== 'drag') return;
     isDragging = true;
     dragTo(e.clientY);
+    recorder.onPlayerInput('drag');
   });
   window.addEventListener('mousemove', (e) => {
     if (controlMode !== 'drag' || !isDragging) return;
@@ -247,6 +248,7 @@ export function initGame(opts: { debug?: boolean } = {}): void {
       if (controlMode !== 'drag') return;
       isDragging = true;
       dragTo(e.touches[0].clientY);
+      recorder.onPlayerInput('drag');
       e.preventDefault();
     },
     { passive: false },
@@ -267,9 +269,11 @@ export function initGame(opts: { debug?: boolean } = {}): void {
   window.addEventListener('keydown', (e) => {
     if (controlMode !== 'keyboard') return;
     if (e.code === 'ArrowUp' || e.code === 'KeyW') {
+      if (!keysHeld.up) recorder.onPlayerInput('key');
       keysHeld.up = true;
       e.preventDefault();
     } else if (e.code === 'ArrowDown' || e.code === 'KeyS') {
+      if (!keysHeld.down) recorder.onPlayerInput('key');
       keysHeld.down = true;
       e.preventDefault();
     }
@@ -287,6 +291,12 @@ export function initGame(opts: { debug?: boolean } = {}): void {
       e.preventDefault();
       togglePause();
     }
+  });
+
+  // reaction-time raw-input stamp for slider mode (the paddle position itself is
+  // read every frame in updatePlayerPaddle; this only marks "the player acted")
+  slider.addEventListener('input', () => {
+    if (controlMode === 'slider') recorder.onPlayerInput('slider');
   });
 
   function readSliderPaddleY(): number {
@@ -438,7 +448,7 @@ export function initGame(opts: { debug?: boolean } = {}): void {
     const dt = Math.min((timestamp - lastTime) / 1000, 0.033);
     lastTime = timestamp;
 
-    recorder.beginFrame(timestamp, dt);
+    recorder.beginFrame(dt);
     step(dt);
     recorder.commitFrame({
       ball,

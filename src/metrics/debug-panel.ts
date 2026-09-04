@@ -162,6 +162,47 @@ const SECTIONS: SectionSpec[] = [
     ],
   },
   {
+    title: 'Reaction · this leg',
+    help: 'How long from the ball turning toward you until you move toward where it is going. Player legs only. If you were already in position it reads "not needed" and is left out of the averages.',
+    rows: [
+      {
+        label: 'status',
+        help: 'Whether the paddle was out of position when the ball turned toward you.',
+        get: (s) =>
+          s.reaction
+            ? s.reaction.needed
+              ? `needed (off ${n(s.reaction.offsetAtStimulusPx)} px)`
+              : `not needed (off ${n(s.reaction.offsetAtStimulusPx)} px)`
+            : '—',
+      },
+      {
+        label: 'since stimulus',
+        help: 'Time since the ball turned toward you this leg.',
+        get: (s) => (s.reaction ? `${n(s.reaction.sinceStimulusMs)} ms` : '—'),
+      },
+      {
+        label: 'from movement',
+        help: 'Latency measured from the first deliberate paddle move toward the intercept. Works in every mode.',
+        get: (s) =>
+          s.reaction && s.reaction.derivedMs !== null
+            ? `${n(s.reaction.derivedMs)} ms`
+            : s.reaction
+              ? 'waiting…'
+              : '—',
+      },
+      {
+        label: 'from input',
+        help: 'Latency measured from the raw input event (keypress / paddle grab / slider nudge). Blank if the mode gives no such event.',
+        get: (s) =>
+          s.reaction && s.reaction.inputMs !== null
+            ? `${n(s.reaction.inputMs)} ms (${s.reaction.inputKind})`
+            : s.reaction
+              ? 'waiting…'
+              : '—',
+      },
+    ],
+  },
+  {
     title: 'Movement · this leg',
     help: 'Four of the five movement-pattern metrics (overshoot is added with accuracy in Stage 5). Resets each leg.',
     rows: [

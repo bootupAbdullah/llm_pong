@@ -901,6 +901,7 @@
     onGameEnd: () => onGameEnd,
     onGameStart: () => onGameStart,
     onPaddleHit: () => onPaddleHit,
+    onPlayerInput: () => onPlayerInput,
     onPoint: () => onPoint,
     onServe: () => onServe,
     onSideChange: () => onSideChange,
@@ -1043,6 +1044,41 @@
     return Math.round(n2 * 1e3) / 1e3;
   }
 
+  // src/metrics/reaction.ts
+  var REACTION_TUNING = {
+    /** Paddle within this of the predicted intercept at the stimulus => no
+     *  reaction needed. Roughly half a paddle height. */
+    positionedTolerancePx: 40,
+    /** |paddle velocity| above this (px/s) counts as a deliberate move. */
+    responseSpeedPxS: 30,
+    /** Ignore "moving toward the intercept" when the paddle is basically there. */
+    minGapPx: 6
+  };
+  function summarizeReactions(all) {
+    const legs = all.filter((r) => r !== null);
+    const needed = legs.filter((r) => r.needed);
+    const derived = needed.map((r) => r.derivedMs).filter((v) => v !== null);
+    const inputs = needed.map((r) => r.inputMs).filter((v) => v !== null);
+    return {
+      measured: derived.length,
+      noReactionNeeded: legs.length - needed.length,
+      meanDerivedMs: mean(derived),
+      medianDerivedMs: median(derived),
+      bestDerivedMs: derived.length ? Math.min(...derived) : null,
+      meanInputMs: mean(inputs)
+    };
+  }
+  function mean(xs) {
+    if (xs.length === 0) return null;
+    return Math.round(xs.reduce((a, b) => a + b, 0) / xs.length);
+  }
+  function median(xs) {
+    if (xs.length === 0) return null;
+    const s = [...xs].sort((a, b) => a - b);
+    const mid = Math.floor(s.length / 2);
+    return s.length % 2 ? s[mid] : Math.round((s[mid - 1] + s[mid]) / 2);
+  }
+
   // src/metrics/recorder.ts
   var FRAME_CAPACITY = 2e4;
   var GAMES_STORAGE_KEY = "pongGames";
@@ -1059,10 +1095,10 @@
     if (frameCount < FRAME_CAPACITY) return frames.slice(0, frameCount);
     return frames.slice(frameHead).concat(frames.slice(0, frameHead));
   }
-  var clockT = typeof performance !== "undefined" ? performance.now() : 0;
+  var clockT = 0;
   var clockDt = 0;
-  function beginFrame(t, dt) {
-    clockT = t;
+  function beginFrame(dt) {
+    clockT += Math.max(0, dt) * 1e3;
     clockDt = dt;
   }
   var rallyIndex = -1;
@@ -1093,6 +1129,22 @@
     gameMove = newMoveAccum();
     restingHist = new Array(MOVE_TUNING.restingBins).fill(0);
   }
+  var reaction = null;
+  function finalizeReaction(r) {
+    return {
+      needed: r.offsetAtStimulus > REACTION_TUNING.positionedTolerancePx,
+      paddleOffsetAtStimulusPx: Math.round(r.offsetAtStimulus),
+      derivedMs: r.derivedT !== null ? Math.round(r.derivedT - r.stimulusT) : null,
+      inputMs: r.inputT !== null ? Math.round(r.inputT - r.stimulusT) : null,
+      inputKind: r.inputKind
+    };
+  }
+  function onPlayerInput(kind) {
+    if (reaction && reaction.inputT === null && clockT >= reaction.stimulusT) {
+      reaction.inputT = clockT;
+      reaction.inputKind = kind;
+    }
+  }
   function configure(g) {
     geometry = g;
   }
@@ -1107,8 +1159,12 @@
     currentLeg.endT = clockT;
     currentLeg.endedBy = endedBy;
     if (legMove) currentLeg.movement = finalizeMove(legMove);
+    if (reaction && reaction.legIndex === currentLeg.index) {
+      currentLeg.reaction = finalizeReaction(reaction);
+    }
     currentLeg = null;
     legMove = null;
+    reaction = null;
   }
   function openLeg(towardSide, playerSide, controlMode) {
     legIndex += 1;
@@ -1121,9 +1177,19 @@
       wallBounces: 0,
       endedBy: null,
       controlMode,
-      movement: null
+      movement: null,
+      reaction: null
     };
     legMove = newMoveAccum();
+    reaction = towardSide === playerSide ? {
+      legIndex,
+      stimulusT: clockT,
+      captured: false,
+      offsetAtStimulus: 0,
+      derivedT: null,
+      inputT: null,
+      inputKind: null
+    } : null;
     currentRally?.legs.push(currentLeg);
   }
   function onGameStart(playerSide) {
@@ -1138,12 +1204,14 @@
       playerSideAtEnd: playerSide,
       rallyCount: 0,
       rallies: [],
-      movement: null
+      movement: null,
+      reaction: null
     };
     rallyIndex = -1;
     legIndex = -1;
     currentRally = null;
     currentLeg = null;
+    reaction = null;
     latestScore = { left: 0, right: 0 };
     resetMovement();
   }
@@ -1197,6 +1265,9 @@
     game.playerSideAtEnd = playerSide;
     game.rallyCount = game.rallies.length;
     game.movement = finalizeGameMove(gameMove, restingHist);
+    game.reaction = summarizeReactions(
+      game.rallies.flatMap((r) => r.legs.map((l) => l.reaction))
+    );
     saveGame(game);
   }
   function commitFrame(st) {
@@ -1256,6 +1327,17 @@
     } else {
       currentPrediction = null;
     }
+    if (reaction && currentLeg && reaction.legIndex === currentLeg.index && geometry && currentPrediction && currentPrediction.interceptY !== null) {
+      const paddleCentre = st.player.y + geometry.paddleH / 2;
+      const gap = currentPrediction.interceptY - paddleCentre;
+      if (!reaction.captured) {
+        reaction.offsetAtStimulus = Math.abs(gap);
+        reaction.captured = true;
+      }
+      if (reaction.derivedT === null && Math.abs(playerVy) > REACTION_TUNING.responseSpeedPxS && Math.abs(gap) > REACTION_TUNING.minGapPx && Math.sign(playerVy) === Math.sign(gap)) {
+        reaction.derivedT = clockT;
+      }
+    }
   }
   function countSavedGames() {
     try {
@@ -1302,7 +1384,19 @@
       prediction: currentPrediction,
       playerVy: lastPlayerVy,
       playerVySmoothed: lastPlayerVySmoothed,
-      currentLegMovement: legMove ? finalizeMove(legMove) : null
+      currentLegMovement: legMove ? finalizeMove(legMove) : null,
+      reaction: liveReaction()
+    };
+  }
+  function liveReaction() {
+    if (!reaction || !reaction.captured) return null;
+    return {
+      sinceStimulusMs: Math.round(clockT - reaction.stimulusT),
+      offsetAtStimulusPx: Math.round(reaction.offsetAtStimulus),
+      needed: reaction.offsetAtStimulus > REACTION_TUNING.positionedTolerancePx,
+      derivedMs: reaction.derivedT !== null ? Math.round(reaction.derivedT - reaction.stimulusT) : null,
+      inputMs: reaction.inputT !== null ? Math.round(reaction.inputT - reaction.stimulusT) : null,
+      inputKind: reaction.inputKind
     };
   }
   function getCurrentGame() {
@@ -1508,6 +1602,7 @@
       if (controlMode !== "drag") return;
       isDragging = true;
       dragTo(e.clientY);
+      onPlayerInput("drag");
     });
     window.addEventListener("mousemove", (e) => {
       if (controlMode !== "drag" || !isDragging) return;
@@ -1522,6 +1617,7 @@
         if (controlMode !== "drag") return;
         isDragging = true;
         dragTo(e.touches[0].clientY);
+        onPlayerInput("drag");
         e.preventDefault();
       },
       { passive: false }
@@ -1541,9 +1637,11 @@
     window.addEventListener("keydown", (e) => {
       if (controlMode !== "keyboard") return;
       if (e.code === "ArrowUp" || e.code === "KeyW") {
+        if (!keysHeld.up) onPlayerInput("key");
         keysHeld.up = true;
         e.preventDefault();
       } else if (e.code === "ArrowDown" || e.code === "KeyS") {
+        if (!keysHeld.down) onPlayerInput("key");
         keysHeld.down = true;
         e.preventDefault();
       }
@@ -1557,6 +1655,9 @@
         e.preventDefault();
         togglePause();
       }
+    });
+    slider.addEventListener("input", () => {
+      if (controlMode === "slider") onPlayerInput("slider");
     });
     function readSliderPaddleY() {
       const maxY = H - PADDLE_H;
@@ -1672,7 +1773,7 @@
       if (lastTime === null) lastTime = timestamp;
       const dt = Math.min((timestamp - lastTime) / 1e3, 0.033);
       lastTime = timestamp;
-      beginFrame(timestamp, dt);
+      beginFrame(dt);
       step(dt);
       commitFrame({
         ball,
@@ -1799,6 +1900,32 @@
           label: "mode",
           help: "Active control mode and side. Every metric is tagged with these so modes can be compared.",
           get: (s) => s.lastFrame ? `${s.lastFrame.controlMode}${s.lastFrame.controlMode === "keyboard" ? ` · notch ${s.lastFrame.keySpeedNotch}` : ""} · ${s.lastFrame.playerSide}` : "—"
+        }
+      ]
+    },
+    {
+      title: "Reaction · this leg",
+      help: 'How long from the ball turning toward you until you move toward where it is going. Player legs only. If you were already in position it reads "not needed" and is left out of the averages.',
+      rows: [
+        {
+          label: "status",
+          help: "Whether the paddle was out of position when the ball turned toward you.",
+          get: (s) => s.reaction ? s.reaction.needed ? `needed (off ${n(s.reaction.offsetAtStimulusPx)} px)` : `not needed (off ${n(s.reaction.offsetAtStimulusPx)} px)` : "—"
+        },
+        {
+          label: "since stimulus",
+          help: "Time since the ball turned toward you this leg.",
+          get: (s) => s.reaction ? `${n(s.reaction.sinceStimulusMs)} ms` : "—"
+        },
+        {
+          label: "from movement",
+          help: "Latency measured from the first deliberate paddle move toward the intercept. Works in every mode.",
+          get: (s) => s.reaction && s.reaction.derivedMs !== null ? `${n(s.reaction.derivedMs)} ms` : s.reaction ? "waiting…" : "—"
+        },
+        {
+          label: "from input",
+          help: "Latency measured from the raw input event (keypress / paddle grab / slider nudge). Blank if the mode gives no such event.",
+          get: (s) => s.reaction && s.reaction.inputMs !== null ? `${n(s.reaction.inputMs)} ms (${s.reaction.inputKind})` : s.reaction ? "waiting…" : "—"
         }
       ]
     },

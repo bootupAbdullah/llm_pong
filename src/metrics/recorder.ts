@@ -28,10 +28,17 @@ import {
   newMoveAccum,
   type MoveAccum,
 } from './movement';
+import {
+  REACTION_TUNING,
+  summarizeReactions,
+  type LegReactionSummary,
+  type ReactionInputKind,
+} from './reaction';
 import type {
   FrameSample,
   GameSummary,
   LegRecord,
+  LiveReaction,
   RallyRecord,
   RecorderSnapshot,
 } from './types';
@@ -60,11 +67,15 @@ export function getFrames(): FrameSample[] {
 
 // --- clock ---------------------------------------------------------------
 
-let clockT = typeof performance !== 'undefined' ? performance.now() : 0;
+// Accumulated *play time* in ms, from 0. Only advances on beginFrame, which the
+// game loop skips while paused or after a win — so paused time is naturally
+// excluded from every leg / rally / reaction duration. (Wall-clock game length
+// still comes from Date.now() in the GameSummary.)
+let clockT = 0;
 let clockDt = 0;
 
-export function beginFrame(t: number, dt: number): void {
-  clockT = t;
+export function beginFrame(dt: number): void {
+  clockT += Math.max(0, dt) * 1000;
   clockDt = dt;
 }
 
@@ -114,6 +125,39 @@ function resetMovement(): void {
   restingHist = new Array(MOVE_TUNING.restingBins).fill(0);
 }
 
+// --- reaction time (per player leg) ------------------------------------
+
+interface ReactionState {
+  legIndex: number;
+  stimulusT: number; // play-time ms at leg start (ball turned toward player)
+  captured: boolean; // stimulus-frame paddle offset recorded yet
+  offsetAtStimulus: number; // |paddle centre − predicted intercept|, px
+  derivedT: number | null; // play-time ms of first deliberate move toward it
+  inputT: number | null; // play-time ms of first raw input event
+  inputKind: ReactionInputKind | null;
+}
+
+let reaction: ReactionState | null = null;
+
+function finalizeReaction(r: ReactionState): LegReactionSummary {
+  return {
+    needed: r.offsetAtStimulus > REACTION_TUNING.positionedTolerancePx,
+    paddleOffsetAtStimulusPx: Math.round(r.offsetAtStimulus),
+    derivedMs: r.derivedT !== null ? Math.round(r.derivedT - r.stimulusT) : null,
+    inputMs: r.inputT !== null ? Math.round(r.inputT - r.stimulusT) : null,
+    inputKind: r.inputKind,
+  };
+}
+
+/** Raw input-event stamp — called by the game on keydown / paddle grab /
+ *  slider nudge. Records the first event after the stimulus on a player leg. */
+export function onPlayerInput(kind: ReactionInputKind): void {
+  if (reaction && reaction.inputT === null && clockT >= reaction.stimulusT) {
+    reaction.inputT = clockT;
+    reaction.inputKind = kind;
+  }
+}
+
 /** Called once by the game with the fixed playfield geometry. */
 export function configure(g: Geometry): void {
   geometry = g;
@@ -132,8 +176,12 @@ function closeLeg(endedBy: LegRecord['endedBy']): void {
   currentLeg.endT = clockT;
   currentLeg.endedBy = endedBy;
   if (legMove) currentLeg.movement = finalizeMove(legMove);
+  if (reaction && reaction.legIndex === currentLeg.index) {
+    currentLeg.reaction = finalizeReaction(reaction);
+  }
   currentLeg = null;
   legMove = null;
+  reaction = null;
 }
 
 function openLeg(
@@ -152,8 +200,21 @@ function openLeg(
     endedBy: null,
     controlMode,
     movement: null,
+    reaction: null,
   };
   legMove = newMoveAccum();
+  reaction =
+    towardSide === playerSide
+      ? {
+          legIndex,
+          stimulusT: clockT,
+          captured: false,
+          offsetAtStimulus: 0,
+          derivedT: null,
+          inputT: null,
+          inputKind: null,
+        }
+      : null;
   currentRally?.legs.push(currentLeg);
 }
 
@@ -171,11 +232,13 @@ export function onGameStart(playerSide: Side): void {
     rallyCount: 0,
     rallies: [],
     movement: null,
+    reaction: null,
   };
   rallyIndex = -1;
   legIndex = -1;
   currentRally = null;
   currentLeg = null;
+  reaction = null;
   latestScore = { left: 0, right: 0 };
   resetMovement();
 }
@@ -251,6 +314,9 @@ export function onGameEnd(
   game.playerSideAtEnd = playerSide;
   game.rallyCount = game.rallies.length;
   game.movement = finalizeGameMove(gameMove, restingHist);
+  game.reaction = summarizeReactions(
+    game.rallies.flatMap((r) => r.legs.map((l) => l.reaction)),
+  );
   saveGame(game);
 }
 
@@ -334,6 +400,33 @@ export function commitFrame(st: FrameState): void {
   } else {
     currentPrediction = null;
   }
+
+  // reaction detection (player leg only) — needs the prediction above
+  if (
+    reaction &&
+    currentLeg &&
+    reaction.legIndex === currentLeg.index &&
+    geometry &&
+    currentPrediction &&
+    currentPrediction.interceptY !== null
+  ) {
+    const paddleCentre = st.player.y + geometry.paddleH / 2;
+    const gap = currentPrediction.interceptY - paddleCentre;
+
+    if (!reaction.captured) {
+      reaction.offsetAtStimulus = Math.abs(gap);
+      reaction.captured = true;
+    }
+
+    if (
+      reaction.derivedT === null &&
+      Math.abs(playerVy) > REACTION_TUNING.responseSpeedPxS &&
+      Math.abs(gap) > REACTION_TUNING.minGapPx &&
+      Math.sign(playerVy) === Math.sign(gap)
+    ) {
+      reaction.derivedT = clockT;
+    }
+  }
 }
 
 // --- persistence ------------------------------------------------------
@@ -391,6 +484,25 @@ export function getSnapshot(): RecorderSnapshot {
     playerVy: lastPlayerVy,
     playerVySmoothed: lastPlayerVySmoothed,
     currentLegMovement: legMove ? finalizeMove(legMove) : null,
+    reaction: liveReaction(),
+  };
+}
+
+function liveReaction(): LiveReaction | null {
+  if (!reaction || !reaction.captured) return null;
+  return {
+    sinceStimulusMs: Math.round(clockT - reaction.stimulusT),
+    offsetAtStimulusPx: Math.round(reaction.offsetAtStimulus),
+    needed: reaction.offsetAtStimulus > REACTION_TUNING.positionedTolerancePx,
+    derivedMs:
+      reaction.derivedT !== null
+        ? Math.round(reaction.derivedT - reaction.stimulusT)
+        : null,
+    inputMs:
+      reaction.inputT !== null
+        ? Math.round(reaction.inputT - reaction.stimulusT)
+        : null,
+    inputKind: reaction.inputKind,
   };
 }
 

@@ -8,6 +8,11 @@
 import type { ControlMode, Side } from '../types';
 import type { Prediction } from './predictor';
 import type { GameMovementSummary, MovementSummary } from './movement';
+import type {
+  GameReactionSummary,
+  LegReactionSummary,
+  ReactionInputKind,
+} from './reaction';
 
 /** One per-frame snapshot of raw game state, taken after the frame's step(). */
 export interface FrameSample {
@@ -51,6 +56,8 @@ export interface LegRecord {
   controlMode: ControlMode;
   /** Player paddle movement over this leg. Null until the leg closes. */
   movement: MovementSummary | null;
+  /** Player reaction on this leg. Null on bot legs and until the leg closes. */
+  reaction: LegReactionSummary | null;
 }
 
 /** Serve to point. */
@@ -79,6 +86,8 @@ export interface GameSummary {
   rallies: RallyRecord[];
   /** Player paddle movement over the whole game. Null until the game ends. */
   movement: GameMovementSummary | null;
+  /** Player reaction time over the whole game. Null until the game ends. */
+  reaction: GameReactionSummary | null;
 }
 
 /** Live view for the debug panel. */
@@ -99,4 +108,15 @@ export interface RecorderSnapshot {
   playerVySmoothed: number;
   /** Movement so far this leg (live running totals), or null between legs. */
   currentLegMovement: MovementSummary | null;
+  /** Live reaction state for the current player leg, or null. */
+  reaction: LiveReaction | null;
+}
+
+export interface LiveReaction {
+  sinceStimulusMs: number;
+  offsetAtStimulusPx: number;
+  needed: boolean;
+  derivedMs: number | null;
+  inputMs: number | null;
+  inputKind: ReactionInputKind | null;
 }
