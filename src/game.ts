@@ -6,6 +6,7 @@
 
 import { byId } from './dom';
 import { getKeySpeed, getKeySpeedNotch, setKeySpeedNotch } from './prefs';
+import * as recorder from './metrics/recorder';
 import type { Ball, ControlMode, Paddle, Score, Side } from './types';
 import {
   BALL_BASE_SPEED,
@@ -77,6 +78,7 @@ export function initGame(): void {
     ball.y = H / 2;
     ball.vx = Math.cos(angle) * BALL_BASE_SPEED * dir;
     ball.vy = Math.sin(angle) * BALL_BASE_SPEED;
+    recorder.onServe(directionTowards, playerSide, controlMode);
   }
 
   function resetGame(): void {
@@ -93,6 +95,7 @@ export function initGame(): void {
     pauseBtn.innerHTML = PAUSE_ICON;
     pauseBtn.setAttribute('aria-label', 'Pause');
     running = true;
+    recorder.onGameStart(playerSide);
     serveBall(Math.random() < 0.5 ? 'left' : 'right');
     lastTime = null;
     requestAnimationFrame(loop);
@@ -130,6 +133,7 @@ export function initGame(): void {
     // slider sits on the same physical side as the paddle it controls
     gameRow.style.flexDirection = side === 'left' ? 'row' : 'row-reverse';
     updateScoreLabels();
+    recorder.onSideChange(side);
   }
 
   btnLeft.addEventListener('click', () => setSide('left'));
@@ -324,9 +328,11 @@ export function initGame(): void {
     if (ball.y - ball.r < 0) {
       ball.y = ball.r;
       ball.vy *= -1;
+      recorder.onWallBounce();
     } else if (ball.y + ball.r > H) {
       ball.y = H - ball.r;
       ball.vy *= -1;
+      recorder.onWallBounce();
     }
 
     checkPaddleCollision(left, PADDLE_MARGIN, 1);
@@ -366,11 +372,13 @@ export function initGame(): void {
     ball.vx = Math.cos(bounceAngle) * speed * dirSign;
     ball.vy = Math.sin(bounceAngle) * speed;
     ball.x = dirSign === 1 ? paddleX + PADDLE_W + ball.r : paddleX - ball.r;
+    recorder.onPaddleHit(dirSign === 1 ? 'left' : 'right', playerSide, controlMode);
   }
 
   function awardPoint(side: Side): void {
     score[side] += 1;
     updateScoreLabels();
+    recorder.onPoint(side, playerSide);
     if (score[side] >= WIN_SCORE) {
       endGame(side);
     } else {
@@ -380,6 +388,10 @@ export function initGame(): void {
 
   function endGame(winningSide: Side): void {
     running = false;
+    recorder.onGameEnd(winningSide, playerSide, {
+      left: score.left,
+      right: score.right,
+    });
     const youWon = winningSide === playerSide;
     statusLine.textContent = youWon ? 'You win!' : 'Bot wins!';
     gameOverOverlay.classList.add('visible');
@@ -412,7 +424,16 @@ export function initGame(): void {
     const dt = Math.min((timestamp - lastTime) / 1000, 0.033);
     lastTime = timestamp;
 
+    recorder.beginFrame(timestamp, dt);
     step(dt);
+    recorder.commitFrame({
+      ball,
+      player: playerSide === 'left' ? left : right,
+      bot: playerSide === 'left' ? right : left,
+      playerSide,
+      controlMode,
+      score: { left: score.left, right: score.right },
+    });
     draw();
 
     requestAnimationFrame(loop);
@@ -420,6 +441,7 @@ export function initGame(): void {
 
   setSide('left');
   setControlMode('slider');
+  recorder.onGameStart(playerSide);
   serveBall(Math.random() < 0.5 ? 'left' : 'right');
   requestAnimationFrame(loop);
 }
