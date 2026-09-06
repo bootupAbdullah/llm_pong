@@ -1,7 +1,8 @@
 # LLM Pong — orientation for a fresh session
 
-Before starting work, read these two files if present (they're git-ignored — local to this machine, not part of the repo history):
+Before starting work, read these files if present (they're git-ignored — local to this machine, not part of the repo history):
 
+0. **`.claude/RESUME-HERE.md`** — if present, a mid-work session handoff: exact current state and the immediate next action. Read it first; it's deleted once its open question is resolved.
 1. **`.claude/pong-project-handoff.md`** — the original Phase 1 spec: scope, explicit non-goals, and design decisions with rationale.
 2. **The highest-numbered `.claude/checkpoint-N.md`** — the most recent snapshot of what's actually been built, what changed since the prior checkpoint, and open threads. Earlier checkpoints are kept as history, not overwritten — only the latest one reflects current status.
 
