@@ -13,6 +13,8 @@ import type {
   LegReactionSummary,
   ReactionInputKind,
 } from './reaction';
+import type { GameAccuracySummary, LegAccuracySummary } from './accuracy';
+import type { StreakSummary } from './streaks';
 
 /** One per-frame snapshot of raw game state, taken after the frame's step(). */
 export interface FrameSample {
@@ -58,6 +60,8 @@ export interface LegRecord {
   movement: MovementSummary | null;
   /** Player reaction on this leg. Null on bot legs and until the leg closes. */
   reaction: LegReactionSummary | null;
+  /** Contact + tracking accuracy + overshoot. Null on bot legs and until close. */
+  accuracy: LegAccuracySummary | null;
 }
 
 /** Serve to point. */
@@ -88,6 +92,10 @@ export interface GameSummary {
   movement: GameMovementSummary | null;
   /** Player reaction time over the whole game. Null until the game ends. */
   reaction: GameReactionSummary | null;
+  /** Player accuracy over the whole game. Null until the game ends. */
+  accuracy: GameAccuracySummary | null;
+  /** Win/loss streaks over the game. Null until the game ends. */
+  streaks: StreakSummary | null;
 }
 
 /** Live view for the debug panel. */
@@ -110,6 +118,20 @@ export interface RecorderSnapshot {
   currentLegMovement: MovementSummary | null;
   /** Live reaction state for the current player leg, or null. */
   reaction: LiveReaction | null;
+  /** Live accuracy state for the current player leg, or null. */
+  accuracy: LiveAccuracy | null;
+  /** Win/loss streaks so far this game. */
+  streaks: StreakSummary;
+  /** The most recently completed player leg's finished metrics, or null. */
+  lastPlayerLeg: {
+    reaction: LegReactionSummary | null;
+    accuracy: LegAccuracySummary | null;
+  } | null;
+}
+
+export interface LiveAccuracy {
+  meanTrackingErrorPx: number;
+  overshootPx: number;
 }
 
 export interface LiveReaction {

@@ -1079,6 +1079,79 @@
     return s.length % 2 ? s[mid] : Math.round((s[mid - 1] + s[mid]) / 2);
   }
 
+  // src/metrics/accuracy.ts
+  var ACCURACY_TUNING = {
+    /** overshoot below this many px past the intercept is treated as noise. */
+    overshootNoisePx: 4
+  };
+  function newAccAccum() {
+    return { frames: 0, sumTrackErr: 0, firstGapSign: 0, maxOvershootPx: 0 };
+  }
+  function feedAcc(a, gap) {
+    a.frames += 1;
+    a.sumTrackErr += Math.abs(gap);
+    if (a.firstGapSign === 0 && Math.abs(gap) > 1) {
+      a.firstGapSign = gap > 0 ? 1 : -1;
+    }
+    if (a.firstGapSign !== 0) {
+      const past = -a.firstGapSign * gap;
+      if (past > a.maxOvershootPx) a.maxOvershootPx = past;
+    }
+  }
+  function finalizeAcc(a, madeContact, contactOffsetPx, halfPaddleH) {
+    return {
+      madeContact,
+      contactOffsetPx: Math.round(contactOffsetPx),
+      contactOffsetNorm: halfPaddleH > 0 ? round2(contactOffsetPx / halfPaddleH) : 0,
+      meanTrackingErrorPx: a.frames ? Math.round(a.sumTrackErr / a.frames) : 0,
+      overshot: a.maxOvershootPx > ACCURACY_TUNING.overshootNoisePx,
+      overshootPx: Math.round(Math.max(0, a.maxOvershootPx))
+    };
+  }
+  function summarizeAccuracy(all) {
+    const legs = all.filter((x) => x !== null);
+    const contacts = legs.filter((x) => x.madeContact);
+    const offs = contacts.map((x) => x.contactOffsetNorm);
+    const track = legs.map((x) => x.meanTrackingErrorPx).filter((v) => v > 0);
+    return {
+      contacts: contacts.length,
+      misses: legs.length - contacts.length,
+      meanContactOffsetNorm: offs.length ? round2(offs.reduce((s, v) => s + v, 0) / offs.length) : null,
+      bestContactOffsetNorm: offs.length ? round2(Math.min(...offs)) : null,
+      meanTrackingErrorPx: track.length ? Math.round(track.reduce((s, v) => s + v, 0) / track.length) : null,
+      overshootLegs: legs.filter((x) => x.overshot).length
+    };
+  }
+  function round2(n2) {
+    return Math.round(n2 * 100) / 100;
+  }
+
+  // src/metrics/streaks.ts
+  function newStreakSummary() {
+    return {
+      outcomes: [],
+      currentWin: 0,
+      currentLoss: 0,
+      longestWin: 0,
+      longestLoss: 0
+    };
+  }
+  function pushOutcome(s, wonByPlayer) {
+    s.outcomes.push(wonByPlayer ? "W" : "L");
+    if (wonByPlayer) {
+      s.currentWin += 1;
+      s.currentLoss = 0;
+      if (s.currentWin > s.longestWin) s.longestWin = s.currentWin;
+    } else {
+      s.currentLoss += 1;
+      s.currentWin = 0;
+      if (s.currentLoss > s.longestLoss) s.longestLoss = s.currentLoss;
+    }
+  }
+  function cloneStreaks(s) {
+    return { ...s, outcomes: [...s.outcomes] };
+  }
+
   // src/metrics/recorder.ts
   var FRAME_CAPACITY = 2e4;
   var GAMES_STORAGE_KEY = "pongGames";
@@ -1130,6 +1203,9 @@
     restingHist = new Array(MOVE_TUNING.restingBins).fill(0);
   }
   var reaction = null;
+  var accAccum = null;
+  var streaks = newStreakSummary();
+  var lastPlayerLeg = null;
   function finalizeReaction(r) {
     return {
       needed: r.offsetAtStimulus > REACTION_TUNING.positionedTolerancePx,
@@ -1154,7 +1230,7 @@
   function otherSide(s) {
     return s === "left" ? "right" : "left";
   }
-  function closeLeg(endedBy) {
+  function closeLeg(endedBy, contact) {
     if (!currentLeg) return;
     currentLeg.endT = clockT;
     currentLeg.endedBy = endedBy;
@@ -1162,9 +1238,29 @@
     if (reaction && reaction.legIndex === currentLeg.index) {
       currentLeg.reaction = finalizeReaction(reaction);
     }
+    if (accAccum && geometry) {
+      const halfH = geometry.paddleH / 2;
+      let madeContact = false;
+      let offsetPx = 0;
+      if (endedBy === "hit" && contact) {
+        madeContact = true;
+        offsetPx = Math.abs(contact.ballY - contact.paddleCentreY);
+      } else if (lastFrame) {
+        offsetPx = Math.abs(lastFrame.ballY - (lastFrame.playerY + halfH));
+      }
+      currentLeg.accuracy = finalizeAcc(accAccum, madeContact, offsetPx, halfH);
+    }
+    const wasPlayerLeg = accAccum !== null || reaction !== null;
+    if (wasPlayerLeg) {
+      lastPlayerLeg = {
+        reaction: currentLeg.reaction,
+        accuracy: currentLeg.accuracy
+      };
+    }
     currentLeg = null;
     legMove = null;
     reaction = null;
+    accAccum = null;
   }
   function openLeg(towardSide, playerSide, controlMode) {
     legIndex += 1;
@@ -1178,10 +1274,12 @@
       endedBy: null,
       controlMode,
       movement: null,
-      reaction: null
+      reaction: null,
+      accuracy: null
     };
     legMove = newMoveAccum();
-    reaction = towardSide === playerSide ? {
+    const playerLeg = towardSide === playerSide;
+    reaction = playerLeg ? {
       legIndex,
       stimulusT: clockT,
       captured: false,
@@ -1190,6 +1288,7 @@
       inputT: null,
       inputKind: null
     } : null;
+    accAccum = playerLeg ? newAccAccum() : null;
     currentRally?.legs.push(currentLeg);
   }
   function onGameStart(playerSide) {
@@ -1205,13 +1304,18 @@
       rallyCount: 0,
       rallies: [],
       movement: null,
-      reaction: null
+      reaction: null,
+      accuracy: null,
+      streaks: null
     };
     rallyIndex = -1;
     legIndex = -1;
     currentRally = null;
     currentLeg = null;
     reaction = null;
+    accAccum = null;
+    streaks = newStreakSummary();
+    lastPlayerLeg = null;
     latestScore = { left: 0, right: 0 };
     resetMovement();
   }
@@ -1231,8 +1335,9 @@
     game?.rallies.push(currentRally);
     openLeg(towards, playerSide, controlMode);
   }
-  function onPaddleHit(hitSide, playerSide, controlMode) {
-    closeLeg("hit");
+  function onPaddleHit(hitSide, playerSide, controlMode, ballY, paddleCentreY) {
+    const contact = hitSide === playerSide ? { ballY, paddleCentreY } : void 0;
+    closeLeg("hit", contact);
     openLeg(otherSide(hitSide), playerSide, controlMode);
   }
   function onWallBounce() {
@@ -1251,6 +1356,7 @@
       currentRally.wonByPlayer = winner === playerSide;
     }
     currentRally = null;
+    pushOutcome(streaks, winner === playerSide);
   }
   function onGameEnd(winner, playerSide, score) {
     closeLeg("gameEnd");
@@ -1268,6 +1374,10 @@
     game.reaction = summarizeReactions(
       game.rallies.flatMap((r) => r.legs.map((l) => l.reaction))
     );
+    game.accuracy = summarizeAccuracy(
+      game.rallies.flatMap((r) => r.legs.map((l) => l.accuracy))
+    );
+    game.streaks = cloneStreaks(streaks);
     saveGame(game);
   }
   function commitFrame(st) {
@@ -1327,15 +1437,18 @@
     } else {
       currentPrediction = null;
     }
-    if (reaction && currentLeg && reaction.legIndex === currentLeg.index && geometry && currentPrediction && currentPrediction.interceptY !== null) {
+    if (currentLeg && geometry && currentPrediction && currentPrediction.interceptY !== null && (reaction || accAccum)) {
       const paddleCentre = st.player.y + geometry.paddleH / 2;
       const gap = currentPrediction.interceptY - paddleCentre;
-      if (!reaction.captured) {
-        reaction.offsetAtStimulus = Math.abs(gap);
-        reaction.captured = true;
-      }
-      if (reaction.derivedT === null && Math.abs(playerVy) > REACTION_TUNING.responseSpeedPxS && Math.abs(gap) > REACTION_TUNING.minGapPx && Math.sign(playerVy) === Math.sign(gap)) {
-        reaction.derivedT = clockT;
+      if (accAccum) feedAcc(accAccum, gap);
+      if (reaction && reaction.legIndex === currentLeg.index) {
+        if (!reaction.captured) {
+          reaction.offsetAtStimulus = Math.abs(gap);
+          reaction.captured = true;
+        }
+        if (reaction.derivedT === null && Math.abs(playerVy) > REACTION_TUNING.responseSpeedPxS && Math.abs(gap) > REACTION_TUNING.minGapPx && Math.sign(playerVy) === Math.sign(gap)) {
+          reaction.derivedT = clockT;
+        }
       }
     }
   }
@@ -1385,7 +1498,13 @@
       playerVy: lastPlayerVy,
       playerVySmoothed: lastPlayerVySmoothed,
       currentLegMovement: legMove ? finalizeMove(legMove) : null,
-      reaction: liveReaction()
+      reaction: liveReaction(),
+      accuracy: accAccum ? {
+        meanTrackingErrorPx: accAccum.frames ? Math.round(accAccum.sumTrackErr / accAccum.frames) : 0,
+        overshootPx: Math.round(Math.max(0, accAccum.maxOvershootPx))
+      } : null,
+      streaks: cloneStreaks(streaks),
+      lastPlayerLeg
     };
   }
   function liveReaction() {
@@ -1728,7 +1847,13 @@
       ball.vx = Math.cos(bounceAngle) * speed * dirSign;
       ball.vy = Math.sin(bounceAngle) * speed;
       ball.x = dirSign === 1 ? paddleX + PADDLE_W + ball.r : paddleX - ball.r;
-      onPaddleHit(dirSign === 1 ? "left" : "right", playerSide, controlMode);
+      onPaddleHit(
+        dirSign === 1 ? "left" : "right",
+        playerSide,
+        controlMode,
+        ball.y,
+        paddle.y + PADDLE_H / 2
+      );
     }
     function awardPoint(side) {
       score[side] += 1;
@@ -1930,8 +2055,56 @@
       ]
     },
     {
+      title: "Accuracy",
+      help: "Contact = how cleanly the ball met the paddle (0 centre, ~1 edge, >1 miss); it measures control, not shot choice. Tracking = how closely the paddle followed the predicted path. Overshoot = sailed past the target and came back.",
+      rows: [
+        {
+          label: "tracking err (leg)",
+          help: "Mean distance between paddle centre and the predicted intercept, so far this leg.",
+          get: (s) => s.accuracy ? `${n(s.accuracy.meanTrackingErrorPx)} px` : "—"
+        },
+        {
+          label: "overshoot (leg)",
+          help: "Furthest the paddle has gone past the predicted intercept this leg.",
+          get: (s) => s.accuracy ? `${n(s.accuracy.overshootPx)} px` : "—"
+        },
+        {
+          label: "last approach",
+          help: "The last completed leg where the ball came at you: contact offset (normalised) and reaction latency.",
+          get: (s) => {
+            const l = s.lastPlayerLeg;
+            if (!l) return "—";
+            const a = l.accuracy ? l.accuracy.madeContact ? `contact ${l.accuracy.contactOffsetNorm}` : `missed (${l.accuracy.contactOffsetNorm})` : "contact —";
+            const r = l.reaction && l.reaction.needed && l.reaction.derivedMs !== null ? ` · ${l.reaction.derivedMs} ms` : l.reaction && !l.reaction.needed ? " · in position" : "";
+            return a + r;
+          }
+        }
+      ]
+    },
+    {
+      title: "Streaks",
+      help: "Rally outcomes from your point of view, and the longest runs.",
+      rows: [
+        {
+          label: "recent",
+          help: "Last rallies, newest on the right. W = you won the point.",
+          get: (s) => s.streaks.outcomes.slice(-14).join("") || "—"
+        },
+        {
+          label: "current",
+          help: "Current win or loss run.",
+          get: (s) => s.streaks.currentWin > 0 ? `${s.streaks.currentWin} W` : s.streaks.currentLoss > 0 ? `${s.streaks.currentLoss} L` : "—"
+        },
+        {
+          label: "longest",
+          help: "Longest win run / longest loss run this game.",
+          get: (s) => `${s.streaks.longestWin} W  /  ${s.streaks.longestLoss} L`
+        }
+      ]
+    },
+    {
       title: "Movement · this leg",
-      help: "Four of the five movement-pattern metrics (overshoot is added with accuracy in Stage 5). Resets each leg.",
+      help: "The other four movement-pattern metrics (overshoot is in Accuracy above). Resets each leg.",
       rows: [
         {
           label: "distance moved",

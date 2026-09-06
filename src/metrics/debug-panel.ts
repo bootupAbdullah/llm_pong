@@ -203,8 +203,71 @@ const SECTIONS: SectionSpec[] = [
     ],
   },
   {
+    title: 'Accuracy',
+    help: 'Contact = how cleanly the ball met the paddle (0 centre, ~1 edge, >1 miss); it measures control, not shot choice. Tracking = how closely the paddle followed the predicted path. Overshoot = sailed past the target and came back.',
+    rows: [
+      {
+        label: 'tracking err (leg)',
+        help: 'Mean distance between paddle centre and the predicted intercept, so far this leg.',
+        get: (s) =>
+          s.accuracy ? `${n(s.accuracy.meanTrackingErrorPx)} px` : '—',
+      },
+      {
+        label: 'overshoot (leg)',
+        help: 'Furthest the paddle has gone past the predicted intercept this leg.',
+        get: (s) => (s.accuracy ? `${n(s.accuracy.overshootPx)} px` : '—'),
+      },
+      {
+        label: 'last approach',
+        help: 'The last completed leg where the ball came at you: contact offset (normalised) and reaction latency.',
+        get: (s) => {
+          const l = s.lastPlayerLeg;
+          if (!l) return '—';
+          const a = l.accuracy
+            ? l.accuracy.madeContact
+              ? `contact ${l.accuracy.contactOffsetNorm}`
+              : `missed (${l.accuracy.contactOffsetNorm})`
+            : 'contact —';
+          const r =
+            l.reaction && l.reaction.needed && l.reaction.derivedMs !== null
+              ? ` · ${l.reaction.derivedMs} ms`
+              : l.reaction && !l.reaction.needed
+                ? ' · in position'
+                : '';
+          return a + r;
+        },
+      },
+    ],
+  },
+  {
+    title: 'Streaks',
+    help: 'Rally outcomes from your point of view, and the longest runs.',
+    rows: [
+      {
+        label: 'recent',
+        help: 'Last rallies, newest on the right. W = you won the point.',
+        get: (s) => s.streaks.outcomes.slice(-14).join('') || '—',
+      },
+      {
+        label: 'current',
+        help: 'Current win or loss run.',
+        get: (s) =>
+          s.streaks.currentWin > 0
+            ? `${s.streaks.currentWin} W`
+            : s.streaks.currentLoss > 0
+              ? `${s.streaks.currentLoss} L`
+              : '—',
+      },
+      {
+        label: 'longest',
+        help: 'Longest win run / longest loss run this game.',
+        get: (s) => `${s.streaks.longestWin} W  /  ${s.streaks.longestLoss} L`,
+      },
+    ],
+  },
+  {
     title: 'Movement · this leg',
-    help: 'Four of the five movement-pattern metrics (overshoot is added with accuracy in Stage 5). Resets each leg.',
+    help: 'The other four movement-pattern metrics (overshoot is in Accuracy above). Resets each leg.',
     rows: [
       {
         label: 'distance moved',

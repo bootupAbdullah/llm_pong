@@ -394,7 +394,13 @@ export function initGame(opts: { debug?: boolean } = {}): void {
     ball.vx = Math.cos(bounceAngle) * speed * dirSign;
     ball.vy = Math.sin(bounceAngle) * speed;
     ball.x = dirSign === 1 ? paddleX + PADDLE_W + ball.r : paddleX - ball.r;
-    recorder.onPaddleHit(dirSign === 1 ? 'left' : 'right', playerSide, controlMode);
+    recorder.onPaddleHit(
+      dirSign === 1 ? 'left' : 'right',
+      playerSide,
+      controlMode,
+      ball.y,
+      paddle.y + PADDLE_H / 2,
+    );
   }
 
   function awardPoint(side: Side): void {

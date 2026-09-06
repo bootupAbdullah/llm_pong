@@ -34,6 +34,19 @@ import {
   type LegReactionSummary,
   type ReactionInputKind,
 } from './reaction';
+import {
+  feedAcc,
+  finalizeAcc,
+  newAccAccum,
+  summarizeAccuracy,
+  type AccAccum,
+} from './accuracy';
+import {
+  cloneStreaks,
+  newStreakSummary,
+  pushOutcome,
+  type StreakSummary,
+} from './streaks';
 import type {
   FrameSample,
   GameSummary,
@@ -139,6 +152,15 @@ interface ReactionState {
 
 let reaction: ReactionState | null = null;
 
+// --- accuracy + streaks ----------------------------------------------
+
+let accAccum: AccAccum | null = null;
+let streaks: StreakSummary = newStreakSummary();
+let lastPlayerLeg: {
+  reaction: LegReactionSummary | null;
+  accuracy: LegRecord['accuracy'];
+} | null = null;
+
 function finalizeReaction(r: ReactionState): LegReactionSummary {
   return {
     needed: r.offsetAtStimulus > REACTION_TUNING.positionedTolerancePx,
@@ -171,7 +193,12 @@ function otherSide(s: Side): Side {
   return s === 'left' ? 'right' : 'left';
 }
 
-function closeLeg(endedBy: LegRecord['endedBy']): void {
+interface Contact {
+  ballY: number;
+  paddleCentreY: number;
+}
+
+function closeLeg(endedBy: LegRecord['endedBy'], contact?: Contact): void {
   if (!currentLeg) return;
   currentLeg.endT = clockT;
   currentLeg.endedBy = endedBy;
@@ -179,9 +206,32 @@ function closeLeg(endedBy: LegRecord['endedBy']): void {
   if (reaction && reaction.legIndex === currentLeg.index) {
     currentLeg.reaction = finalizeReaction(reaction);
   }
+  if (accAccum && geometry) {
+    const halfH = geometry.paddleH / 2;
+    let madeContact = false;
+    let offsetPx = 0;
+    if (endedBy === 'hit' && contact) {
+      madeContact = true;
+      offsetPx = Math.abs(contact.ballY - contact.paddleCentreY);
+    } else if (lastFrame) {
+      // conceded or game end — offset at the last recorded frame
+      offsetPx = Math.abs(lastFrame.ballY - (lastFrame.playerY + halfH));
+    }
+    currentLeg.accuracy = finalizeAcc(accAccum, madeContact, offsetPx, halfH);
+  }
+
+  const wasPlayerLeg = accAccum !== null || reaction !== null;
+  if (wasPlayerLeg) {
+    lastPlayerLeg = {
+      reaction: currentLeg.reaction,
+      accuracy: currentLeg.accuracy,
+    };
+  }
+
   currentLeg = null;
   legMove = null;
   reaction = null;
+  accAccum = null;
 }
 
 function openLeg(
@@ -201,20 +251,22 @@ function openLeg(
     controlMode,
     movement: null,
     reaction: null,
+    accuracy: null,
   };
   legMove = newMoveAccum();
-  reaction =
-    towardSide === playerSide
-      ? {
-          legIndex,
-          stimulusT: clockT,
-          captured: false,
-          offsetAtStimulus: 0,
-          derivedT: null,
-          inputT: null,
-          inputKind: null,
-        }
-      : null;
+  const playerLeg = towardSide === playerSide;
+  reaction = playerLeg
+    ? {
+        legIndex,
+        stimulusT: clockT,
+        captured: false,
+        offsetAtStimulus: 0,
+        derivedT: null,
+        inputT: null,
+        inputKind: null,
+      }
+    : null;
+  accAccum = playerLeg ? newAccAccum() : null;
   currentRally?.legs.push(currentLeg);
 }
 
@@ -233,12 +285,17 @@ export function onGameStart(playerSide: Side): void {
     rallies: [],
     movement: null,
     reaction: null,
+    accuracy: null,
+    streaks: null,
   };
   rallyIndex = -1;
   legIndex = -1;
   currentRally = null;
   currentLeg = null;
   reaction = null;
+  accAccum = null;
+  streaks = newStreakSummary();
+  lastPlayerLeg = null;
   latestScore = { left: 0, right: 0 };
   resetMovement();
 }
@@ -270,9 +327,14 @@ export function onPaddleHit(
   hitSide: Side,
   playerSide: Side,
   controlMode: ControlMode,
+  ballY: number,
+  paddleCentreY: number,
 ): void {
-  // ball was heading toward hitSide; it now reverses toward the other end
-  closeLeg('hit');
+  // ball was heading toward hitSide; it now reverses toward the other end.
+  // If the player's paddle made the hit, that closes a player leg with contact.
+  const contact: Contact | undefined =
+    hitSide === playerSide ? { ballY, paddleCentreY } : undefined;
+  closeLeg('hit', contact);
   openLeg(otherSide(hitSide), playerSide, controlMode);
 }
 
@@ -294,6 +356,7 @@ export function onPoint(winner: Side, playerSide: Side): void {
     currentRally.wonByPlayer = winner === playerSide;
   }
   currentRally = null;
+  pushOutcome(streaks, winner === playerSide);
 }
 
 export function onGameEnd(
@@ -317,6 +380,10 @@ export function onGameEnd(
   game.reaction = summarizeReactions(
     game.rallies.flatMap((r) => r.legs.map((l) => l.reaction)),
   );
+  game.accuracy = summarizeAccuracy(
+    game.rallies.flatMap((r) => r.legs.map((l) => l.accuracy)),
+  );
+  game.streaks = cloneStreaks(streaks);
   saveGame(game);
 }
 
@@ -401,30 +468,33 @@ export function commitFrame(st: FrameState): void {
     currentPrediction = null;
   }
 
-  // reaction detection (player leg only) — needs the prediction above
+  // player-leg per-frame derived metrics (reaction, tracking, overshoot) —
+  // all keyed off the gap between the paddle centre and the predicted intercept
   if (
-    reaction &&
     currentLeg &&
-    reaction.legIndex === currentLeg.index &&
     geometry &&
     currentPrediction &&
-    currentPrediction.interceptY !== null
+    currentPrediction.interceptY !== null &&
+    (reaction || accAccum)
   ) {
     const paddleCentre = st.player.y + geometry.paddleH / 2;
     const gap = currentPrediction.interceptY - paddleCentre;
 
-    if (!reaction.captured) {
-      reaction.offsetAtStimulus = Math.abs(gap);
-      reaction.captured = true;
-    }
+    if (accAccum) feedAcc(accAccum, gap);
 
-    if (
-      reaction.derivedT === null &&
-      Math.abs(playerVy) > REACTION_TUNING.responseSpeedPxS &&
-      Math.abs(gap) > REACTION_TUNING.minGapPx &&
-      Math.sign(playerVy) === Math.sign(gap)
-    ) {
-      reaction.derivedT = clockT;
+    if (reaction && reaction.legIndex === currentLeg.index) {
+      if (!reaction.captured) {
+        reaction.offsetAtStimulus = Math.abs(gap);
+        reaction.captured = true;
+      }
+      if (
+        reaction.derivedT === null &&
+        Math.abs(playerVy) > REACTION_TUNING.responseSpeedPxS &&
+        Math.abs(gap) > REACTION_TUNING.minGapPx &&
+        Math.sign(playerVy) === Math.sign(gap)
+      ) {
+        reaction.derivedT = clockT;
+      }
     }
   }
 }
@@ -485,6 +555,16 @@ export function getSnapshot(): RecorderSnapshot {
     playerVySmoothed: lastPlayerVySmoothed,
     currentLegMovement: legMove ? finalizeMove(legMove) : null,
     reaction: liveReaction(),
+    accuracy: accAccum
+      ? {
+          meanTrackingErrorPx: accAccum.frames
+            ? Math.round(accAccum.sumTrackErr / accAccum.frames)
+            : 0,
+          overshootPx: Math.round(Math.max(0, accAccum.maxOvershootPx)),
+        }
+      : null,
+    streaks: cloneStreaks(streaks),
+    lastPlayerLeg,
   };
 }
 
