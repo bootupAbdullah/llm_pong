@@ -19,7 +19,7 @@
 
 import type { Ball, ControlMode, Paddle, Side } from '../types';
 import { getKeySpeedNotch } from '../prefs';
-import { predict, type Prediction } from './predictor';
+import { PREDICTOR_VERSION, predict, type Prediction } from './predictor';
 import {
   MOVE_TUNING,
   feedMove,
@@ -59,6 +59,7 @@ import type {
 const FRAME_CAPACITY = 20000; // ~5.5 min at 60fps
 const GAMES_STORAGE_KEY = 'pongGames';
 const MAX_SAVED_GAMES = 20;
+const SCHEMA_VERSION = 1; // GameSummary.schemaVersion — frozen at Stage 6
 
 // --- per-frame ring buffer -------------------------------------------------
 
@@ -249,6 +250,7 @@ function openLeg(
     wallBounces: 0,
     endedBy: null,
     controlMode,
+    keySpeedNotch: getKeySpeedNotch(),
     movement: null,
     reaction: null,
     accuracy: null,
@@ -273,7 +275,8 @@ function openLeg(
 export function onGameStart(playerSide: Side): void {
   // any in-progress game is discarded — only finished games are saved
   game = {
-    schemaVersion: 1,
+    schemaVersion: SCHEMA_VERSION,
+    predictorVersion: PREDICTOR_VERSION,
     startedAt: Date.now(),
     endedAt: null,
     durationMs: 0,
@@ -501,22 +504,28 @@ export function commitFrame(st: FrameState): void {
 
 // --- persistence ------------------------------------------------------
 
-function countSavedGames(): number {
+function readGameList(): GameSummary[] {
   try {
     const raw = localStorage.getItem(GAMES_STORAGE_KEY);
-    if (!raw) return 0;
-    const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed.length : 0;
+    const parsed: unknown = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(parsed)) return [];
+    // only current-schema games — older/newer versions are ignored, not migrated
+    return parsed.filter(
+      (g): g is GameSummary =>
+        !!g && (g as GameSummary).schemaVersion === SCHEMA_VERSION,
+    );
   } catch (e) {
-    return 0;
+    return [];
   }
+}
+
+function countSavedGames(): number {
+  return readGameList().length;
 }
 
 function saveGame(g: GameSummary): void {
   try {
-    const raw = localStorage.getItem(GAMES_STORAGE_KEY);
-    const parsed: unknown = raw ? JSON.parse(raw) : [];
-    const list: GameSummary[] = Array.isArray(parsed) ? parsed : [];
+    const list = readGameList();
     list.push(g);
     while (list.length > MAX_SAVED_GAMES) list.shift();
     localStorage.setItem(GAMES_STORAGE_KEY, JSON.stringify(list));
@@ -528,13 +537,7 @@ function saveGame(g: GameSummary): void {
 
 /** Saved game summaries, oldest first. */
 export function getSavedGames(): GameSummary[] {
-  try {
-    const raw = localStorage.getItem(GAMES_STORAGE_KEY);
-    const parsed: unknown = raw ? JSON.parse(raw) : [];
-    return Array.isArray(parsed) ? parsed : [];
-  } catch (e) {
-    return [];
-  }
+  return readGameList();
 }
 
 // --- live view / dev access ------------------------------------------
@@ -589,4 +592,21 @@ function liveReaction(): LiveReaction | null {
 /** In-memory summary of the game currently being played (unfinished). */
 export function getCurrentGame(): GameSummary | null {
   return game;
+}
+
+/** Everything the recorder holds — for dev-only console inspection / export. */
+export function dump(): {
+  schemaVersion: number;
+  predictorVersion: number;
+  currentGame: GameSummary | null;
+  savedGames: GameSummary[];
+  frames: FrameSample[];
+} {
+  return {
+    schemaVersion: SCHEMA_VERSION,
+    predictorVersion: PREDICTOR_VERSION,
+    currentGame: game,
+    savedGames: getSavedGames(),
+    frames: getFrames(),
+  };
 }

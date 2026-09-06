@@ -765,12 +765,6 @@
 <script>
 "use strict";
 (() => {
-  var __defProp = Object.defineProperty;
-  var __export = (target, all) => {
-    for (var name in all)
-      __defProp(target, name, { get: all[name], enumerable: true });
-  };
-
   // src/dom.ts
   function byId(id) {
     const el = document.getElementById(id);
@@ -886,27 +880,6 @@
   function getKeySpeed() {
     return KEY_SPEED_NOTCHES[notch] ?? KEY_SPEED_NOTCHES[DEFAULT_KEY_SPEED_NOTCH];
   }
-
-  // src/metrics/recorder.ts
-  var recorder_exports = {};
-  __export(recorder_exports, {
-    beginFrame: () => beginFrame,
-    commitFrame: () => commitFrame,
-    configure: () => configure,
-    getCurrentGame: () => getCurrentGame,
-    getCurrentPrediction: () => getCurrentPrediction,
-    getFrames: () => getFrames,
-    getSavedGames: () => getSavedGames,
-    getSnapshot: () => getSnapshot,
-    onGameEnd: () => onGameEnd,
-    onGameStart: () => onGameStart,
-    onPaddleHit: () => onPaddleHit,
-    onPlayerInput: () => onPlayerInput,
-    onPoint: () => onPoint,
-    onServe: () => onServe,
-    onSideChange: () => onSideChange,
-    onWallBounce: () => onWallBounce
-  });
 
   // src/metrics/predictor.ts
   var PREDICTOR_VERSION = 1;
@@ -1156,6 +1129,7 @@
   var FRAME_CAPACITY = 2e4;
   var GAMES_STORAGE_KEY = "pongGames";
   var MAX_SAVED_GAMES = 20;
+  var SCHEMA_VERSION = 1;
   var frames = [];
   var frameHead = 0;
   var frameCount = 0;
@@ -1273,6 +1247,7 @@
       wallBounces: 0,
       endedBy: null,
       controlMode,
+      keySpeedNotch: getKeySpeedNotch(),
       movement: null,
       reaction: null,
       accuracy: null
@@ -1293,7 +1268,8 @@
   }
   function onGameStart(playerSide) {
     game = {
-      schemaVersion: 1,
+      schemaVersion: SCHEMA_VERSION,
+      predictorVersion: PREDICTOR_VERSION,
       startedAt: Date.now(),
       endedAt: null,
       durationMs: 0,
@@ -1452,21 +1428,24 @@
       }
     }
   }
-  function countSavedGames() {
-    try {
-      const raw = localStorage.getItem(GAMES_STORAGE_KEY);
-      if (!raw) return 0;
-      const parsed = JSON.parse(raw);
-      return Array.isArray(parsed) ? parsed.length : 0;
-    } catch (e) {
-      return 0;
-    }
-  }
-  function saveGame(g) {
+  function readGameList() {
     try {
       const raw = localStorage.getItem(GAMES_STORAGE_KEY);
       const parsed = raw ? JSON.parse(raw) : [];
-      const list = Array.isArray(parsed) ? parsed : [];
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter(
+        (g) => !!g && g.schemaVersion === SCHEMA_VERSION
+      );
+    } catch (e) {
+      return [];
+    }
+  }
+  function countSavedGames() {
+    return readGameList().length;
+  }
+  function saveGame(g) {
+    try {
+      const list = readGameList();
       list.push(g);
       while (list.length > MAX_SAVED_GAMES) list.shift();
       localStorage.setItem(GAMES_STORAGE_KEY, JSON.stringify(list));
@@ -1475,13 +1454,7 @@
     }
   }
   function getSavedGames() {
-    try {
-      const raw = localStorage.getItem(GAMES_STORAGE_KEY);
-      const parsed = raw ? JSON.parse(raw) : [];
-      return Array.isArray(parsed) ? parsed : [];
-    } catch (e) {
-      return [];
-    }
+    return readGameList();
   }
   function getSnapshot() {
     return {
@@ -1520,6 +1493,15 @@
   }
   function getCurrentGame() {
     return game;
+  }
+  function dump() {
+    return {
+      schemaVersion: SCHEMA_VERSION,
+      predictorVersion: PREDICTOR_VERSION,
+      currentGame: game,
+      savedGames: getSavedGames(),
+      frames: getFrames()
+    };
   }
 
   // src/metrics/overlay.ts
@@ -2216,7 +2198,24 @@
   if (debug) {
     initDebugPanel();
   }
-  globalThis.__pongMetrics = recorder_exports;
+  globalThis.__pongMetrics = {
+    getFrames,
+    getSnapshot,
+    getCurrentGame,
+    getSavedGames,
+    dump,
+    downloadJSON() {
+      const blob = new Blob([JSON.stringify(dump(), null, 2)], {
+        type: "application/json"
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `pong-metrics-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  };
 })();
 </script>
 </body>

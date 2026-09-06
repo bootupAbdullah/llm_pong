@@ -19,4 +19,24 @@ if (debug) {
 }
 
 // Dev-only console access to the raw recording — no player-facing export.
-(globalThis as Record<string, unknown>).__pongMetrics = metrics;
+//   __pongMetrics.dump()          full state (current + saved games + frames)
+//   __pongMetrics.getSavedGames() the persisted player records
+//   __pongMetrics.downloadJSON()  save dump() to a file (for offline analysis)
+(globalThis as Record<string, unknown>).__pongMetrics = {
+  getFrames: metrics.getFrames,
+  getSnapshot: metrics.getSnapshot,
+  getCurrentGame: metrics.getCurrentGame,
+  getSavedGames: metrics.getSavedGames,
+  dump: metrics.dump,
+  downloadJSON(): void {
+    const blob = new Blob([JSON.stringify(metrics.dump(), null, 2)], {
+      type: 'application/json',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `pong-metrics-${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+};

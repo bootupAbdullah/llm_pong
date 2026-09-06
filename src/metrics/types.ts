@@ -1,9 +1,11 @@
 // Phase 2 metrics — data shapes.
 //
-// Stage 1 records only *raw* state: per-frame snapshots plus the segmentation of
-// play into rallies and legs. No derived metrics yet (velocity, reaction time,
-// accuracy, movement patterns) — those stages compute from FrameSample[] and
-// hang their results off LegRecord / RallyRecord / GameSummary.
+// FrameSample[] is the raw substrate (memory only). The derived metrics —
+// paddle velocity, movement patterns, reaction time, accuracy, streaks — hang
+// off LegRecord / RallyRecord / GameSummary. GameSummary is the persisted
+// player record; it is schemaVersion 1 and FROZEN as of Phase 2 Stage 6:
+// add fields, never repurpose one, and bump schemaVersion for a breaking
+// change so old saved games can be filtered or migrated.
 
 import type { ControlMode, Side } from '../types';
 import type { Prediction } from './predictor';
@@ -18,7 +20,7 @@ import type { StreakSummary } from './streaks';
 
 /** One per-frame snapshot of raw game state, taken after the frame's step(). */
 export interface FrameSample {
-  /** rAF timestamp, ms (same timebase as performance.now()). */
+  /** Accumulated play time, ms from 0 (excludes paused time). */
   t: number;
   /** Frame delta, seconds (already clamped by the game loop). */
   dt: number;
@@ -56,6 +58,8 @@ export interface LegRecord {
   wallBounces: number;
   endedBy: 'hit' | 'point' | 'gameEnd' | null;
   controlMode: ControlMode;
+  /** Keyboard-sensitivity notch at leg start (for reading keyboard-mode legs). */
+  keySpeedNotch: number;
   /** Player paddle movement over this leg. Null until the leg closes. */
   movement: MovementSummary | null;
   /** Player reaction on this leg. Null on bot legs and until the leg closes. */
@@ -79,9 +83,11 @@ export interface RallyRecord {
  *  they stay in memory only. */
 export interface GameSummary {
   schemaVersion: 1;
+  /** Ball-path predictor version behind the tracking/overshoot numbers. */
+  predictorVersion: number;
   startedAt: number; // Date.now() at first serve
   endedAt: number | null; // Date.now() at the winning point
-  durationMs: number;
+  durationMs: number; // wall-clock (includes pauses)
   winner: Side | null;
   wonByPlayer: boolean | null;
   finalScore: { left: number; right: number };
