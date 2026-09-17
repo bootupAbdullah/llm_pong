@@ -48,6 +48,9 @@ export function initSettings(): void {
   }
 
   settingsTrigger.addEventListener('click', () => {
+    // shares its drop-zone with the difficulty panel below it — see
+    // difficulty-menu.ts
+    document.getElementById('difficultyPanel')?.classList.remove('open');
     settingsPanel.classList.toggle('open');
   });
 

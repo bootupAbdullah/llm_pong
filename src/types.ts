@@ -6,6 +6,10 @@ export type Side = 'left' | 'right';
 /** How the player's paddle is currently being driven. */
 export type ControlMode = 'slider' | 'drag' | 'keyboard';
 
+/** Bot difficulty tier. Stage 0 (Phase 3): persisted pref only, not yet
+ * wired to bot behaviour. */
+export type Difficulty = 'easy' | 'medium' | 'hard';
+
 export interface Paddle {
   /** Top edge of the paddle, in canvas px. */
   y: number;

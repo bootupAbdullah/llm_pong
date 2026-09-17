@@ -3,6 +3,7 @@
 // before any of this runs.
 
 import { initSettings } from './settings';
+import { initDifficultyMenu } from './difficulty-menu';
 import { initGame } from './game';
 import * as metrics from './metrics/recorder';
 import { initDebugPanel } from './metrics/debug-panel';
@@ -10,6 +11,7 @@ import { initDebugPanel } from './metrics/debug-panel';
 const debug = window.location.hash.toLowerCase().includes('debug');
 
 initSettings();
+initDifficultyMenu();
 initGame({ debug });
 
 // Metrics recording is always on (later phases consume it live). The #debug

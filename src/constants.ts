@@ -1,6 +1,8 @@
 // Fixed gameplay constants. Ported verbatim from the Phase 1 inline script;
 // values unchanged.
 
+import type { Difficulty } from './types';
+
 export const PADDLE_W = 12;
 export const PADDLE_H = 80;
 export const PADDLE_MARGIN = 20;
@@ -19,3 +21,7 @@ export const BALL_MAX_SPEED = 620;
 // alongside keyboard-mode samples.
 export const KEY_SPEED_NOTCHES = [550, 680, 810, 950, 1080] as const; // px/sec
 export const DEFAULT_KEY_SPEED_NOTCH = 0; // default = the floor
+
+// Bot difficulty (Phase 3). Stage 0: default tier only — the per-tier bot
+// parameters land in a later stage.
+export const DEFAULT_DIFFICULTY: Difficulty = 'medium';

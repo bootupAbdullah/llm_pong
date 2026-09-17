@@ -126,9 +126,9 @@
     border-radius: 3px;
   }
 
-  .settings-trigger {
+  .settings-trigger,
+  .difficulty-trigger {
     position: fixed;
-    top: 24px;
     right: 32px;
     display: flex;
     align-items: center;
@@ -139,20 +139,37 @@
     background: #fff;
     color: var(--ink);
     cursor: pointer;
+    /* above either panel below, so the two stacked trigger buttons stay
+       clickable even while the other's panel is open */
+    z-index: 2;
   }
 
-  .settings-trigger:hover {
+  .settings-trigger {
+    top: 24px;
+  }
+
+  .difficulty-trigger {
+    /* directly under the settings/theme button, same 6px gap the panel
+       below uses */
+    top: 64px;
+  }
+
+  .settings-trigger:hover,
+  .difficulty-trigger:hover {
     background: rgba(38, 65, 92, 0.08);
   }
 
-  .settings-trigger svg {
+  .settings-trigger svg,
+  .difficulty-trigger svg {
     width: 18px;
     height: 18px;
   }
 
-  .settings-panel {
+  .settings-panel,
+  .difficulty-panel {
     position: fixed;
-    top: 64px;
+    /* both panels open from the same spot, below the stacked trigger pair */
+    top: 104px;
     right: 32px;
     display: none;
     flex-direction: column;
@@ -163,7 +180,8 @@
     min-width: 130px;
   }
 
-  .settings-panel.open {
+  .settings-panel.open,
+  .difficulty-panel.open {
     display: flex;
   }
 
@@ -173,6 +191,25 @@
     letter-spacing: 0.06em;
     opacity: 0.6;
     margin-bottom: 2px;
+  }
+
+  .difficulty-option {
+    padding: 5px 6px;
+    border: 1px solid transparent;
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.74rem;
+    color: var(--ink);
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .difficulty-option:hover {
+    background: rgba(38, 65, 92, 0.06);
+  }
+
+  .difficulty-option.active {
+    border-color: var(--window-border);
   }
 
   .theme-option {
@@ -649,6 +686,29 @@
   </div>
 </div>
 
+<button class="difficulty-trigger" id="difficultyTrigger" type="button" aria-label="Difficulty">
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6"/>
+    <circle cx="12" cy="12" r="7" stroke="currentColor" stroke-width="1.6"/>
+    <g stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+      <line x1="12" y1="2" x2="12" y2="4.2"/>
+      <line x1="12" y1="19.8" x2="12" y2="22"/>
+      <line x1="2" y1="12" x2="4.2" y2="12"/>
+      <line x1="19.8" y1="12" x2="22" y2="12"/>
+      <line x1="4.9" y1="4.9" x2="6.4" y2="6.4"/>
+      <line x1="17.6" y1="17.6" x2="19.1" y2="19.1"/>
+      <line x1="19.1" y1="4.9" x2="17.6" y2="6.4"/>
+      <line x1="6.4" y1="17.6" x2="4.9" y2="19.1"/>
+    </g>
+  </svg>
+</button>
+<div class="difficulty-panel" id="difficultyPanel">
+  <div class="settings-panel-label">Difficulty</div>
+  <button class="difficulty-option" data-difficulty="easy" type="button">Easy</button>
+  <button class="difficulty-option active" data-difficulty="medium" type="button">Medium</button>
+  <button class="difficulty-option" data-difficulty="hard" type="button">Hard</button>
+</div>
+
 <div class="social-links">
   <a href="https://github.com/bootupAbdullah/llm_pong" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
     <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -807,6 +867,7 @@
       }
     }
     settingsTrigger.addEventListener("click", () => {
+      document.getElementById("difficultyPanel")?.classList.remove("open");
       settingsPanel.classList.toggle("open");
     });
     themeOptions.forEach((btn) => {
@@ -850,9 +911,67 @@
   var BALL_MAX_SPEED = 620;
   var KEY_SPEED_NOTCHES = [550, 680, 810, 950, 1080];
   var DEFAULT_KEY_SPEED_NOTCH = 0;
+  var DEFAULT_DIFFICULTY = "medium";
+
+  // src/difficulty.ts
+  var STORAGE_KEY = "pongDifficulty";
+  var VALID = ["easy", "medium", "hard"];
+  function isDifficulty(v) {
+    return typeof v === "string" && VALID.includes(v);
+  }
+  function loadDifficulty() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (isDifficulty(raw)) return raw;
+    } catch (e) {
+    }
+    return DEFAULT_DIFFICULTY;
+  }
+  var difficulty = loadDifficulty();
+  function getDifficulty() {
+    return difficulty;
+  }
+  function setDifficulty(next) {
+    difficulty = next;
+    try {
+      localStorage.setItem(STORAGE_KEY, difficulty);
+    } catch (e) {
+    }
+  }
+
+  // src/difficulty-menu.ts
+  function initDifficultyMenu() {
+    const trigger = byId("difficultyTrigger");
+    const panel = byId("difficultyPanel");
+    const options = document.querySelectorAll(".difficulty-option");
+    function syncActive() {
+      const current = getDifficulty();
+      options.forEach(
+        (btn) => btn.classList.toggle("active", btn.dataset.difficulty === current)
+      );
+    }
+    trigger.addEventListener("click", () => {
+      document.getElementById("settingsPanel")?.classList.remove("open");
+      panel.classList.toggle("open");
+    });
+    options.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        setDifficulty(btn.dataset.difficulty);
+        syncActive();
+        panel.classList.remove("open");
+      });
+    });
+    document.addEventListener("click", (e) => {
+      const target = e.target;
+      if (target && !panel.contains(target) && !trigger.contains(target)) {
+        panel.classList.remove("open");
+      }
+    });
+    syncActive();
+  }
 
   // src/prefs.ts
-  var STORAGE_KEY = "pongKeySpeed";
+  var STORAGE_KEY2 = "pongKeySpeed";
   var MAX_NOTCH = KEY_SPEED_NOTCHES.length - 1;
   function clampNotch(n2) {
     if (!Number.isFinite(n2)) return DEFAULT_KEY_SPEED_NOTCH;
@@ -860,7 +979,7 @@
   }
   function loadNotch() {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(STORAGE_KEY2);
       if (raw !== null) return clampNotch(Number(raw));
     } catch (e) {
     }
@@ -873,7 +992,7 @@
   function setKeySpeedNotch(n2) {
     notch = clampNotch(n2);
     try {
-      localStorage.setItem(STORAGE_KEY, String(notch));
+      localStorage.setItem(STORAGE_KEY2, String(notch));
     } catch (e) {
     }
   }
@@ -2194,6 +2313,7 @@
   // src/main.ts
   var debug = window.location.hash.toLowerCase().includes("debug");
   initSettings();
+  initDifficultyMenu();
   initGame({ debug });
   if (debug) {
     initDebugPanel();
