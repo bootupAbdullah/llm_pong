@@ -445,6 +445,37 @@
     gap: 14px;
   }
 
+  /* Keyboard-sensitivity slider: only meaningful in keyboard control mode, but
+     its space is reserved in every mode (min-height) so switching modes doesn't
+     shift the canvas. It just fades out when it isn't the active mode. */
+  .key-sensitivity {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 14px;
+    min-height: 26px;
+    transition: opacity 0.15s ease;
+  }
+
+  .key-sensitivity.inactive {
+    opacity: 0;
+    visibility: hidden;
+  }
+
+  .key-sensitivity-label {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    opacity: 0.6;
+  }
+
+  .key-sensitivity-slider {
+    width: 132px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
   .mode-card {
     display: flex;
     flex-direction: column;
@@ -722,407 +753,1469 @@
             <span class="mode-label">Keyboard</span>
           </button>
         </div>
+        <div class="key-sensitivity inactive" id="keySensitivity">
+          <label class="key-sensitivity-label" for="keySensitivitySlider">Keyboard sensitivity</label>
+          <input type="range" class="key-sensitivity-slider" id="keySensitivitySlider" min="0" max="4" step="1" value="0" aria-label="Keyboard paddle sensitivity">
+        </div>
       </div>
     </div>
   </div>
 </div>
 
 <script>
-(function () {
-  const canvas = document.getElementById('pongCanvas');
-  const gameWindow = document.getElementById('gameWindow');
-  const ctx = canvas.getContext('2d');
-  const W = canvas.width;
-  const H = canvas.height;
-
-  const PADDLE_W = 12;
-  const PADDLE_H = 80;
-  const PADDLE_MARGIN = 20;
-  const BALL_R = 8;
-  const WIN_SCORE = 11;
-  const BOT_MAX_SPEED = 340; // px/sec
-  const BALL_BASE_SPEED = 320; // px/sec
-  const BALL_SPEED_STEP = 18; // px/sec added per paddle hit
-  const BALL_MAX_SPEED = 620;
-  const PLAYER_KEY_SPEED = 420; // px/sec, keyboard control mode
-
-  const slider = document.getElementById('paddleSlider');
-  const gameRow = document.getElementById('gameRow');
-  const btnLeft = document.getElementById('btnLeft');
-  const btnRight = document.getElementById('btnRight');
-  const leftScoreName = document.getElementById('leftScoreName');
-  const leftScoreValue = document.getElementById('leftScoreValue');
-  const rightScoreName = document.getElementById('rightScoreName');
-  const rightScoreValue = document.getElementById('rightScoreValue');
-  const statusLine = document.getElementById('statusLine');
-  const restartBtn = document.getElementById('restartBtn');
-  const gameOverOverlay = document.getElementById('gameOverOverlay');
-  const pauseOverlay = document.getElementById('pauseOverlay');
-  const pauseBtn = document.getElementById('pauseBtn');
-  const modeButtons = document.querySelectorAll('.mode-card');
-  const settingsTrigger = document.getElementById('settingsTrigger');
-  const settingsPanel = document.getElementById('settingsPanel');
-  const themeOptions = document.querySelectorAll('.theme-option');
-  const textSizeOptions = document.querySelectorAll('.text-size-option');
-
-  const PAUSE_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>';
-  const PLAY_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4 L20 12 L7 20 Z"/></svg>';
-
-  let playerSide = 'left'; // 'left' or 'right'
-  let controlMode = 'slider'; // 'slider' | 'drag' | 'keyboard' — how the player's paddle is driven
-  let isDragging = false;
-  let paused = false;
-  const keysHeld = { up: false, down: false };
-
-  const left = { y: H / 2 - PADDLE_H / 2, prevY: H / 2 - PADDLE_H / 2 };
-  const right = { y: H / 2 - PADDLE_H / 2, prevY: H / 2 - PADDLE_H / 2 };
-  const score = { left: 0, right: 0 };
-
-  const ball = { x: W / 2, y: H / 2, vx: 0, vy: 0, r: BALL_R };
-
-  let running = true;
-  let lastTime = null;
-
-  function serveBall(directionTowards) {
-    const angle = (Math.random() * 0.6 - 0.3); // +/- ~17 degrees
-    const dir = directionTowards === 'left' ? -1 : 1;
-    ball.x = W / 2;
-    ball.y = H / 2;
-    ball.vx = Math.cos(angle) * BALL_BASE_SPEED * dir;
-    ball.vy = Math.sin(angle) * BALL_BASE_SPEED;
+"use strict";
+(() => {
+  // src/dom.ts
+  function byId(id) {
+    const el = document.getElementById(id);
+    if (!el) throw new Error(`Missing required element #${id}`);
+    return el;
   }
 
-  function resetGame() {
-    score.left = 0;
-    score.right = 0;
-    left.y = right.y = H / 2 - PADDLE_H / 2;
-    left.prevY = left.y;
-    right.prevY = right.y;
-    updateScoreLabels();
-    statusLine.textContent = '';
-    gameOverOverlay.classList.remove('visible');
-    paused = false;
-    pauseOverlay.classList.remove('visible');
-    pauseBtn.innerHTML = PAUSE_ICON;
-    pauseBtn.setAttribute('aria-label', 'Pause');
-    running = true;
-    serveBall(Math.random() < 0.5 ? 'left' : 'right');
-    lastTime = null;
-    requestAnimationFrame(loop);
+  // src/settings.ts
+  function initSettings() {
+    const settingsTrigger = byId("settingsTrigger");
+    const settingsPanel = byId("settingsPanel");
+    const themeOptions = document.querySelectorAll(".theme-option");
+    const textSizeOptions = document.querySelectorAll(".text-size-option");
+    function applyTheme(theme) {
+      if (theme === "blue") {
+        document.documentElement.removeAttribute("data-theme");
+      } else {
+        document.documentElement.setAttribute("data-theme", theme);
+      }
+      themeOptions.forEach(
+        (btn) => btn.classList.toggle("active", btn.dataset.theme === theme)
+      );
+      try {
+        localStorage.setItem("pongTheme", theme);
+      } catch (e) {
+      }
+    }
+    function applyTextSize(size) {
+      if (size === "normal") {
+        document.documentElement.removeAttribute("data-text-size");
+      } else {
+        document.documentElement.setAttribute("data-text-size", size);
+      }
+      textSizeOptions.forEach(
+        (btn) => btn.classList.toggle("active", btn.dataset.size === size)
+      );
+      try {
+        localStorage.setItem("pongTextSize", size);
+      } catch (e) {
+      }
+    }
+    settingsTrigger.addEventListener("click", () => {
+      settingsPanel.classList.toggle("open");
+    });
+    themeOptions.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        applyTheme(btn.dataset.theme);
+        settingsPanel.classList.remove("open");
+      });
+    });
+    textSizeOptions.forEach((btn) => {
+      btn.addEventListener("click", () => {
+        applyTextSize(btn.dataset.size);
+        settingsPanel.classList.remove("open");
+      });
+    });
+    document.addEventListener("click", (e) => {
+      const target = e.target;
+      if (target && !settingsPanel.contains(target) && !settingsTrigger.contains(target)) {
+        settingsPanel.classList.remove("open");
+      }
+    });
+    let savedTheme = null;
+    let savedTextSize = null;
+    try {
+      savedTheme = localStorage.getItem("pongTheme");
+      savedTextSize = localStorage.getItem("pongTextSize");
+    } catch (e) {
+    }
+    if (savedTheme) applyTheme(savedTheme);
+    if (savedTextSize) applyTextSize(savedTextSize);
   }
 
-  function setPaused(next) {
-    paused = next;
-    pauseOverlay.classList.toggle('visible', paused);
-    pauseBtn.innerHTML = paused ? PLAY_ICON : PAUSE_ICON;
-    pauseBtn.setAttribute('aria-label', paused ? 'Resume' : 'Pause');
-    if (!paused) {
-      // resume fresh rather than let a frozen lastTime produce a huge dt spike
+  // src/constants.ts
+  var PADDLE_W = 12;
+  var PADDLE_H = 80;
+  var PADDLE_MARGIN = 20;
+  var BALL_R = 8;
+  var WIN_SCORE = 11;
+  var BOT_MAX_SPEED = 340;
+  var BALL_BASE_SPEED = 320;
+  var BALL_SPEED_STEP = 18;
+  var BALL_MAX_SPEED = 620;
+  var KEY_SPEED_NOTCHES = [550, 680, 810, 950, 1080];
+  var DEFAULT_KEY_SPEED_NOTCH = 0;
+
+  // src/prefs.ts
+  var STORAGE_KEY = "pongKeySpeed";
+  var MAX_NOTCH = KEY_SPEED_NOTCHES.length - 1;
+  function clampNotch(n2) {
+    if (!Number.isFinite(n2)) return DEFAULT_KEY_SPEED_NOTCH;
+    return Math.max(0, Math.min(MAX_NOTCH, Math.round(n2)));
+  }
+  function loadNotch() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw !== null) return clampNotch(Number(raw));
+    } catch (e) {
+    }
+    return DEFAULT_KEY_SPEED_NOTCH;
+  }
+  var notch = loadNotch();
+  function getKeySpeedNotch() {
+    return notch;
+  }
+  function setKeySpeedNotch(n2) {
+    notch = clampNotch(n2);
+    try {
+      localStorage.setItem(STORAGE_KEY, String(notch));
+    } catch (e) {
+    }
+  }
+  function getKeySpeed() {
+    return KEY_SPEED_NOTCHES[notch] ?? KEY_SPEED_NOTCHES[DEFAULT_KEY_SPEED_NOTCH];
+  }
+
+  // src/metrics/predictor.ts
+  var PREDICTOR_VERSION = 1;
+  var MAX_BOUNCES = 32;
+  function predict(input) {
+    const { ballX, ballVx, ballVy, ballR, height, targetX } = input;
+    const top = ballR;
+    const bottom = height - ballR;
+    const y0 = Math.max(top, Math.min(bottom, input.ballY));
+    const result = {
+      version: PREDICTOR_VERSION,
+      targetX,
+      interceptY: null,
+      timeToIntercept: null,
+      bounces: 0,
+      path: [{ x: ballX, y: y0, t: 0, kind: "start" }],
+      segments: []
+    };
+    const dirToTarget = Math.sign(targetX - ballX);
+    if (ballVx === 0 || dirToTarget === 0 || Math.sign(ballVx) !== dirToTarget) {
+      return result;
+    }
+    const vx = ballVx;
+    let x = ballX;
+    let y = y0;
+    let vy = ballVy;
+    let t = 0;
+    let bounces = 0;
+    for (let i = 0; i <= MAX_BOUNCES; i += 1) {
+      const tToTarget = (targetX - x) / vx;
+      let tToWall = Infinity;
+      if (vy > 0) tToWall = (bottom - y) / vy;
+      else if (vy < 0) tToWall = (top - y) / vy;
+      if (tToTarget <= tToWall) {
+        t += tToTarget;
+        const iy = y + vy * tToTarget;
+        result.path.push({ x: targetX, y: iy, t, kind: "intercept" });
+        result.interceptY = iy;
+        result.timeToIntercept = t;
+        break;
+      }
+      t += tToWall;
+      x += vx * tToWall;
+      y = vy > 0 ? bottom : top;
+      vy = -vy;
+      bounces += 1;
+      result.path.push({ x, y, t, kind: "wall" });
+    }
+    result.bounces = bounces;
+    result.segments = segmentsFromPath(result.path);
+    return result;
+  }
+  function segmentsFromPath(path) {
+    const segments = [];
+    for (let i = 0; i + 1 < path.length; i += 1) {
+      const a = path[i];
+      const b = path[i + 1];
+      const dx = b.x - a.x;
+      if (dx === 0) continue;
+      const slope = (b.y - a.y) / dx;
+      segments.push({ fromX: a.x, toX: b.x, slope, intercept: a.y - slope * a.x });
+    }
+    return segments;
+  }
+  function formatRule(prediction, maxSegments = 2) {
+    if (prediction.segments.length === 0) return "y = —";
+    const parts = prediction.segments.slice(0, maxSegments).map((s) => {
+      const sign = s.intercept < 0 ? "−" : "+";
+      return `y = ${s.slope.toFixed(2)}x ${sign} ${Math.abs(s.intercept).toFixed(0)}`;
+    });
+    if (prediction.segments.length > maxSegments) parts.push("…");
+    return parts.join("  |  ");
+  }
+
+  // src/metrics/movement.ts
+  var MOVE_TUNING = {
+    /** |velocity| below this (px/s) counts as "not moving". */
+    idleSpeedPxS: 8,
+    /** ignore direction flips from jitter below this |velocity| (px/s). */
+    dirDeadbandPxS: 20,
+    /** bins for the resting-position histogram (paddle-centre y over a game). */
+    restingBins: 8,
+    /** EMA factor for the smoothed velocity readout. */
+    smoothingAlpha: 1 / 3
+  };
+  function newMoveAccum() {
+    return {
+      frames: 0,
+      travel: 0,
+      idleFrames: 0,
+      movingFrames: 0,
+      sumMovingSpeed: 0,
+      peakSpeed: 0,
+      directionChanges: 0,
+      lastDirSign: 0,
+      sumAbsAccel: 0,
+      accelSamples: 0
+    };
+  }
+  function feedMove(a, f) {
+    a.frames += 1;
+    a.travel += Math.abs(f.dy);
+    const speed = Math.abs(f.vy);
+    if (speed > a.peakSpeed) a.peakSpeed = speed;
+    if (speed < MOVE_TUNING.idleSpeedPxS) {
+      a.idleFrames += 1;
+    } else {
+      a.movingFrames += 1;
+      a.sumMovingSpeed += speed;
+    }
+    const sign = f.vy > MOVE_TUNING.dirDeadbandPxS ? 1 : f.vy < -MOVE_TUNING.dirDeadbandPxS ? -1 : 0;
+    if (sign !== 0) {
+      if (a.lastDirSign !== 0 && sign !== a.lastDirSign) a.directionChanges += 1;
+      a.lastDirSign = sign;
+    }
+    if (f.accel !== null) {
+      a.sumAbsAccel += Math.abs(f.accel);
+      a.accelSamples += 1;
+    }
+  }
+  function finalizeMove(a) {
+    return {
+      travelPx: Math.round(a.travel),
+      idleFraction: a.frames ? round3(a.idleFrames / a.frames) : 0,
+      directionChanges: a.directionChanges,
+      peakSpeedPxS: Math.round(a.peakSpeed),
+      meanMovingSpeedPxS: a.movingFrames ? Math.round(a.sumMovingSpeed / a.movingFrames) : 0,
+      meanAbsAccelPxS2: a.accelSamples ? Math.round(a.sumAbsAccel / a.accelSamples) : 0
+    };
+  }
+  function finalizeGameMove(a, restingHistogram) {
+    return { ...finalizeMove(a), restingHistogram: [...restingHistogram] };
+  }
+  function round3(n2) {
+    return Math.round(n2 * 1e3) / 1e3;
+  }
+
+  // src/metrics/reaction.ts
+  var REACTION_TUNING = {
+    /** Paddle within this of the predicted intercept at the stimulus => no
+     *  reaction needed. Roughly half a paddle height. */
+    positionedTolerancePx: 40,
+    /** |paddle velocity| above this (px/s) counts as a deliberate move. */
+    responseSpeedPxS: 30,
+    /** Ignore "moving toward the intercept" when the paddle is basically there. */
+    minGapPx: 6
+  };
+  function summarizeReactions(all) {
+    const legs = all.filter((r) => r !== null);
+    const needed = legs.filter((r) => r.needed);
+    const derived = needed.map((r) => r.derivedMs).filter((v) => v !== null);
+    const inputs = needed.map((r) => r.inputMs).filter((v) => v !== null);
+    return {
+      measured: derived.length,
+      noReactionNeeded: legs.length - needed.length,
+      meanDerivedMs: mean(derived),
+      medianDerivedMs: median(derived),
+      bestDerivedMs: derived.length ? Math.min(...derived) : null,
+      meanInputMs: mean(inputs)
+    };
+  }
+  function mean(xs) {
+    if (xs.length === 0) return null;
+    return Math.round(xs.reduce((a, b) => a + b, 0) / xs.length);
+  }
+  function median(xs) {
+    if (xs.length === 0) return null;
+    const s = [...xs].sort((a, b) => a - b);
+    const mid = Math.floor(s.length / 2);
+    return s.length % 2 ? s[mid] : Math.round((s[mid - 1] + s[mid]) / 2);
+  }
+
+  // src/metrics/accuracy.ts
+  var ACCURACY_TUNING = {
+    /** overshoot below this many px past the intercept is treated as noise. */
+    overshootNoisePx: 4
+  };
+  function newAccAccum() {
+    return { frames: 0, sumTrackErr: 0, firstGapSign: 0, maxOvershootPx: 0 };
+  }
+  function feedAcc(a, gap) {
+    a.frames += 1;
+    a.sumTrackErr += Math.abs(gap);
+    if (a.firstGapSign === 0 && Math.abs(gap) > 1) {
+      a.firstGapSign = gap > 0 ? 1 : -1;
+    }
+    if (a.firstGapSign !== 0) {
+      const past = -a.firstGapSign * gap;
+      if (past > a.maxOvershootPx) a.maxOvershootPx = past;
+    }
+  }
+  function finalizeAcc(a, madeContact, contactOffsetPx, halfPaddleH) {
+    return {
+      madeContact,
+      contactOffsetPx: Math.round(contactOffsetPx),
+      contactOffsetNorm: halfPaddleH > 0 ? round2(contactOffsetPx / halfPaddleH) : 0,
+      meanTrackingErrorPx: a.frames ? Math.round(a.sumTrackErr / a.frames) : 0,
+      overshot: a.maxOvershootPx > ACCURACY_TUNING.overshootNoisePx,
+      overshootPx: Math.round(Math.max(0, a.maxOvershootPx))
+    };
+  }
+  function summarizeAccuracy(all) {
+    const legs = all.filter((x) => x !== null);
+    const contacts = legs.filter((x) => x.madeContact);
+    const offs = contacts.map((x) => x.contactOffsetNorm);
+    const track = legs.map((x) => x.meanTrackingErrorPx).filter((v) => v > 0);
+    return {
+      contacts: contacts.length,
+      misses: legs.length - contacts.length,
+      meanContactOffsetNorm: offs.length ? round2(offs.reduce((s, v) => s + v, 0) / offs.length) : null,
+      bestContactOffsetNorm: offs.length ? round2(Math.min(...offs)) : null,
+      meanTrackingErrorPx: track.length ? Math.round(track.reduce((s, v) => s + v, 0) / track.length) : null,
+      overshootLegs: legs.filter((x) => x.overshot).length
+    };
+  }
+  function round2(n2) {
+    return Math.round(n2 * 100) / 100;
+  }
+
+  // src/metrics/streaks.ts
+  function newStreakSummary() {
+    return {
+      outcomes: [],
+      currentWin: 0,
+      currentLoss: 0,
+      longestWin: 0,
+      longestLoss: 0
+    };
+  }
+  function pushOutcome(s, wonByPlayer) {
+    s.outcomes.push(wonByPlayer ? "W" : "L");
+    if (wonByPlayer) {
+      s.currentWin += 1;
+      s.currentLoss = 0;
+      if (s.currentWin > s.longestWin) s.longestWin = s.currentWin;
+    } else {
+      s.currentLoss += 1;
+      s.currentWin = 0;
+      if (s.currentLoss > s.longestLoss) s.longestLoss = s.currentLoss;
+    }
+  }
+  function cloneStreaks(s) {
+    return { ...s, outcomes: [...s.outcomes] };
+  }
+
+  // src/metrics/recorder.ts
+  var FRAME_CAPACITY = 2e4;
+  var GAMES_STORAGE_KEY = "pongGames";
+  var MAX_SAVED_GAMES = 20;
+  var SCHEMA_VERSION = 1;
+  var frames = [];
+  var frameHead = 0;
+  var frameCount = 0;
+  function pushFrame(s) {
+    frames[frameHead] = s;
+    frameHead = (frameHead + 1) % FRAME_CAPACITY;
+    if (frameCount < FRAME_CAPACITY) frameCount += 1;
+  }
+  function getFrames() {
+    if (frameCount < FRAME_CAPACITY) return frames.slice(0, frameCount);
+    return frames.slice(frameHead).concat(frames.slice(0, frameHead));
+  }
+  var clockT = 0;
+  var clockDt = 0;
+  function beginFrame(dt) {
+    clockT += Math.max(0, dt) * 1e3;
+    clockDt = dt;
+  }
+  var rallyIndex = -1;
+  var legIndex = -1;
+  var currentRally = null;
+  var currentLeg = null;
+  var game = null;
+  var lastFrame = null;
+  var latestScore = { left: 0, right: 0 };
+  var gamesSaved = countSavedGames();
+  var geometry = null;
+  var currentPrediction = null;
+  var prevPlayerY = null;
+  var prevBotY = null;
+  var prevPlayerVy = null;
+  var lastPlayerVy = 0;
+  var lastPlayerVySmoothed = 0;
+  var legMove = null;
+  var gameMove = newMoveAccum();
+  var restingHist = new Array(MOVE_TUNING.restingBins).fill(0);
+  function resetMovement() {
+    prevPlayerY = null;
+    prevBotY = null;
+    prevPlayerVy = null;
+    lastPlayerVy = 0;
+    lastPlayerVySmoothed = 0;
+    legMove = null;
+    gameMove = newMoveAccum();
+    restingHist = new Array(MOVE_TUNING.restingBins).fill(0);
+  }
+  var reaction = null;
+  var accAccum = null;
+  var streaks = newStreakSummary();
+  var lastPlayerLeg = null;
+  function finalizeReaction(r) {
+    return {
+      needed: r.offsetAtStimulus > REACTION_TUNING.positionedTolerancePx,
+      paddleOffsetAtStimulusPx: Math.round(r.offsetAtStimulus),
+      derivedMs: r.derivedT !== null ? Math.round(r.derivedT - r.stimulusT) : null,
+      inputMs: r.inputT !== null ? Math.round(r.inputT - r.stimulusT) : null,
+      inputKind: r.inputKind
+    };
+  }
+  function onPlayerInput(kind) {
+    if (reaction && reaction.inputT === null && clockT >= reaction.stimulusT) {
+      reaction.inputT = clockT;
+      reaction.inputKind = kind;
+    }
+  }
+  function configure(g) {
+    geometry = g;
+  }
+  function getCurrentPrediction() {
+    return currentPrediction;
+  }
+  function otherSide(s) {
+    return s === "left" ? "right" : "left";
+  }
+  function closeLeg(endedBy, contact) {
+    if (!currentLeg) return;
+    currentLeg.endT = clockT;
+    currentLeg.endedBy = endedBy;
+    if (legMove) currentLeg.movement = finalizeMove(legMove);
+    if (reaction && reaction.legIndex === currentLeg.index) {
+      currentLeg.reaction = finalizeReaction(reaction);
+    }
+    if (accAccum && geometry) {
+      const halfH = geometry.paddleH / 2;
+      let madeContact = false;
+      let offsetPx = 0;
+      if (endedBy === "hit" && contact) {
+        madeContact = true;
+        offsetPx = Math.abs(contact.ballY - contact.paddleCentreY);
+      } else if (lastFrame) {
+        offsetPx = Math.abs(lastFrame.ballY - (lastFrame.playerY + halfH));
+      }
+      currentLeg.accuracy = finalizeAcc(accAccum, madeContact, offsetPx, halfH);
+    }
+    const wasPlayerLeg = accAccum !== null || reaction !== null;
+    if (wasPlayerLeg) {
+      lastPlayerLeg = {
+        reaction: currentLeg.reaction,
+        accuracy: currentLeg.accuracy
+      };
+    }
+    currentLeg = null;
+    legMove = null;
+    reaction = null;
+    accAccum = null;
+  }
+  function openLeg(towardSide, playerSide, controlMode) {
+    legIndex += 1;
+    currentLeg = {
+      index: legIndex,
+      towardSide,
+      towardPlayer: towardSide === playerSide,
+      startT: clockT,
+      endT: null,
+      wallBounces: 0,
+      endedBy: null,
+      controlMode,
+      keySpeedNotch: getKeySpeedNotch(),
+      movement: null,
+      reaction: null,
+      accuracy: null
+    };
+    legMove = newMoveAccum();
+    const playerLeg = towardSide === playerSide;
+    reaction = playerLeg ? {
+      legIndex,
+      stimulusT: clockT,
+      captured: false,
+      offsetAtStimulus: 0,
+      derivedT: null,
+      inputT: null,
+      inputKind: null
+    } : null;
+    accAccum = playerLeg ? newAccAccum() : null;
+    currentRally?.legs.push(currentLeg);
+  }
+  function onGameStart(playerSide) {
+    game = {
+      schemaVersion: SCHEMA_VERSION,
+      predictorVersion: PREDICTOR_VERSION,
+      startedAt: Date.now(),
+      endedAt: null,
+      durationMs: 0,
+      winner: null,
+      wonByPlayer: null,
+      finalScore: { left: 0, right: 0 },
+      playerSideAtEnd: playerSide,
+      rallyCount: 0,
+      rallies: [],
+      movement: null,
+      reaction: null,
+      accuracy: null,
+      streaks: null
+    };
+    rallyIndex = -1;
+    legIndex = -1;
+    currentRally = null;
+    currentLeg = null;
+    reaction = null;
+    accAccum = null;
+    streaks = newStreakSummary();
+    lastPlayerLeg = null;
+    latestScore = { left: 0, right: 0 };
+    resetMovement();
+  }
+  function onServe(towards, playerSide, controlMode) {
+    closeLeg("point");
+    if (currentRally && currentRally.endT === null) currentRally.endT = clockT;
+    rallyIndex += 1;
+    legIndex = -1;
+    currentRally = {
+      index: rallyIndex,
+      startT: clockT,
+      endT: null,
+      winner: null,
+      wonByPlayer: null,
+      legs: []
+    };
+    game?.rallies.push(currentRally);
+    openLeg(towards, playerSide, controlMode);
+  }
+  function onPaddleHit(hitSide, playerSide, controlMode, ballY, paddleCentreY) {
+    const contact = hitSide === playerSide ? { ballY, paddleCentreY } : void 0;
+    closeLeg("hit", contact);
+    openLeg(otherSide(hitSide), playerSide, controlMode);
+  }
+  function onWallBounce() {
+    if (currentLeg) currentLeg.wallBounces += 1;
+  }
+  function onSideChange(playerSide) {
+    if (currentLeg) {
+      currentLeg.towardPlayer = currentLeg.towardSide === playerSide;
+    }
+  }
+  function onPoint(winner, playerSide) {
+    closeLeg("point");
+    if (currentRally) {
+      currentRally.endT = clockT;
+      currentRally.winner = winner;
+      currentRally.wonByPlayer = winner === playerSide;
+    }
+    currentRally = null;
+    pushOutcome(streaks, winner === playerSide);
+  }
+  function onGameEnd(winner, playerSide, score) {
+    closeLeg("gameEnd");
+    if (currentRally && currentRally.endT === null) currentRally.endT = clockT;
+    currentRally = null;
+    if (!game) return;
+    game.endedAt = Date.now();
+    game.durationMs = game.endedAt - game.startedAt;
+    game.winner = winner;
+    game.wonByPlayer = winner === playerSide;
+    game.finalScore = { ...score };
+    game.playerSideAtEnd = playerSide;
+    game.rallyCount = game.rallies.length;
+    game.movement = finalizeGameMove(gameMove, restingHist);
+    game.reaction = summarizeReactions(
+      game.rallies.flatMap((r) => r.legs.map((l) => l.reaction))
+    );
+    game.accuracy = summarizeAccuracy(
+      game.rallies.flatMap((r) => r.legs.map((l) => l.accuracy))
+    );
+    game.streaks = cloneStreaks(streaks);
+    saveGame(game);
+  }
+  function commitFrame(st) {
+    const dt = clockDt > 0 ? clockDt : 1 / 60;
+    const playerDy = prevPlayerY === null ? 0 : st.player.y - prevPlayerY;
+    const botDy = prevBotY === null ? 0 : st.bot.y - prevBotY;
+    const playerVy = prevPlayerY === null ? 0 : playerDy / dt;
+    const botVy = prevBotY === null ? 0 : botDy / dt;
+    const playerAccel = prevPlayerVy === null ? null : (playerVy - prevPlayerVy) / dt;
+    const sample = {
+      t: clockT,
+      dt: clockDt,
+      ballX: st.ball.x,
+      ballY: st.ball.y,
+      ballVx: st.ball.vx,
+      ballVy: st.ball.vy,
+      playerY: st.player.y,
+      botY: st.bot.y,
+      playerVy,
+      botVy,
+      playerSide: st.playerSide,
+      controlMode: st.controlMode,
+      keySpeedNotch: getKeySpeedNotch(),
+      rallyIndex,
+      legIndex
+    };
+    pushFrame(sample);
+    lastFrame = sample;
+    latestScore = { ...st.score };
+    const moveFrame = { dy: playerDy, vy: playerVy, accel: playerAccel };
+    if (legMove) feedMove(legMove, moveFrame);
+    feedMove(gameMove, moveFrame);
+    if (geometry) {
+      const centreY = st.player.y + geometry.paddleH / 2;
+      const frac = centreY / geometry.height;
+      const bin = Math.max(
+        0,
+        Math.min(MOVE_TUNING.restingBins - 1, Math.floor(frac * MOVE_TUNING.restingBins))
+      );
+      restingHist[bin] += 1;
+    }
+    prevPlayerY = st.player.y;
+    prevBotY = st.bot.y;
+    prevPlayerVy = playerVy;
+    lastPlayerVy = playerVy;
+    lastPlayerVySmoothed = lastPlayerVySmoothed + MOVE_TUNING.smoothingAlpha * (playerVy - lastPlayerVySmoothed);
+    if (geometry && currentLeg) {
+      currentPrediction = predict({
+        ballX: st.ball.x,
+        ballY: st.ball.y,
+        ballVx: st.ball.vx,
+        ballVy: st.ball.vy,
+        ballR: geometry.ballR,
+        height: geometry.height,
+        targetX: currentLeg.towardSide === "left" ? geometry.contactPlaneLeft : geometry.contactPlaneRight
+      });
+    } else {
+      currentPrediction = null;
+    }
+    if (currentLeg && geometry && currentPrediction && currentPrediction.interceptY !== null && (reaction || accAccum)) {
+      const paddleCentre = st.player.y + geometry.paddleH / 2;
+      const gap = currentPrediction.interceptY - paddleCentre;
+      if (accAccum) feedAcc(accAccum, gap);
+      if (reaction && reaction.legIndex === currentLeg.index) {
+        if (!reaction.captured) {
+          reaction.offsetAtStimulus = Math.abs(gap);
+          reaction.captured = true;
+        }
+        if (reaction.derivedT === null && Math.abs(playerVy) > REACTION_TUNING.responseSpeedPxS && Math.abs(gap) > REACTION_TUNING.minGapPx && Math.sign(playerVy) === Math.sign(gap)) {
+          reaction.derivedT = clockT;
+        }
+      }
+    }
+  }
+  function readGameList() {
+    try {
+      const raw = localStorage.getItem(GAMES_STORAGE_KEY);
+      const parsed = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(parsed)) return [];
+      return parsed.filter(
+        (g) => !!g && g.schemaVersion === SCHEMA_VERSION
+      );
+    } catch (e) {
+      return [];
+    }
+  }
+  function countSavedGames() {
+    return readGameList().length;
+  }
+  function saveGame(g) {
+    try {
+      const list = readGameList();
+      list.push(g);
+      while (list.length > MAX_SAVED_GAMES) list.shift();
+      localStorage.setItem(GAMES_STORAGE_KEY, JSON.stringify(list));
+      gamesSaved = list.length;
+    } catch (e) {
+    }
+  }
+  function getSavedGames() {
+    return readGameList();
+  }
+  function getSnapshot() {
+    return {
+      framesBuffered: frameCount,
+      frameCapacity: FRAME_CAPACITY,
+      lastFrame,
+      rallyIndex,
+      legIndex,
+      currentLeg,
+      ralliesThisGame: game ? game.rallies.length : 0,
+      score: { ...latestScore },
+      gamesSaved,
+      prediction: currentPrediction,
+      playerVy: lastPlayerVy,
+      playerVySmoothed: lastPlayerVySmoothed,
+      currentLegMovement: legMove ? finalizeMove(legMove) : null,
+      reaction: liveReaction(),
+      accuracy: accAccum ? {
+        meanTrackingErrorPx: accAccum.frames ? Math.round(accAccum.sumTrackErr / accAccum.frames) : 0,
+        overshootPx: Math.round(Math.max(0, accAccum.maxOvershootPx))
+      } : null,
+      streaks: cloneStreaks(streaks),
+      lastPlayerLeg
+    };
+  }
+  function liveReaction() {
+    if (!reaction || !reaction.captured) return null;
+    return {
+      sinceStimulusMs: Math.round(clockT - reaction.stimulusT),
+      offsetAtStimulusPx: Math.round(reaction.offsetAtStimulus),
+      needed: reaction.offsetAtStimulus > REACTION_TUNING.positionedTolerancePx,
+      derivedMs: reaction.derivedT !== null ? Math.round(reaction.derivedT - reaction.stimulusT) : null,
+      inputMs: reaction.inputT !== null ? Math.round(reaction.inputT - reaction.stimulusT) : null,
+      inputKind: reaction.inputKind
+    };
+  }
+  function getCurrentGame() {
+    return game;
+  }
+  function dump() {
+    return {
+      schemaVersion: SCHEMA_VERSION,
+      predictorVersion: PREDICTOR_VERSION,
+      currentGame: game,
+      savedGames: getSavedGames(),
+      frames: getFrames()
+    };
+  }
+
+  // src/metrics/overlay.ts
+  var LINE = "rgba(122, 224, 165, 0.75)";
+  var MARK = "rgba(122, 224, 165, 0.95)";
+  function drawPrediction(ctx, prediction) {
+    if (!prediction || prediction.path.length < 2) return;
+    ctx.save();
+    ctx.strokeStyle = LINE;
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 5]);
+    ctx.beginPath();
+    const start = prediction.path[0];
+    ctx.moveTo(start.x, start.y);
+    for (let i = 1; i < prediction.path.length; i += 1) {
+      ctx.lineTo(prediction.path[i].x, prediction.path[i].y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = MARK;
+    for (const p of prediction.path) {
+      if (p.kind === "wall") ctx.fillRect(p.x - 2, p.y - 2, 4, 4);
+    }
+    if (prediction.interceptY !== null) {
+      const end = prediction.path[prediction.path.length - 1];
+      ctx.strokeStyle = MARK;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(end.x, end.y, 6, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // src/game.ts
+  function initGame(opts = {}) {
+    const debug2 = opts.debug ?? false;
+    const canvas = byId("pongCanvas");
+    const gameWindow = byId("gameWindow");
+    const ctx2d = canvas.getContext("2d");
+    if (!ctx2d) throw new Error("Canvas 2D context unavailable");
+    const ctx = ctx2d;
+    const W = canvas.width;
+    const H = canvas.height;
+    const slider = byId("paddleSlider");
+    const gameRow = byId("gameRow");
+    const btnLeft = byId("btnLeft");
+    const btnRight = byId("btnRight");
+    const leftScoreName = byId("leftScoreName");
+    const leftScoreValue = byId("leftScoreValue");
+    const rightScoreName = byId("rightScoreName");
+    const rightScoreValue = byId("rightScoreValue");
+    const statusLine = byId("statusLine");
+    const restartBtn = byId("restartBtn");
+    const gameOverOverlay = byId("gameOverOverlay");
+    const pauseOverlay = byId("pauseOverlay");
+    const pauseBtn = byId("pauseBtn");
+    const modeButtons = document.querySelectorAll(".mode-card");
+    const keySensitivity = byId("keySensitivity");
+    const keySensitivitySlider = byId("keySensitivitySlider");
+    const PAUSE_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16" rx="1"/><rect x="14" y="4" width="4" height="16" rx="1"/></svg>';
+    const PLAY_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M7 4 L20 12 L7 20 Z"/></svg>';
+    let playerSide = "left";
+    let controlMode = "slider";
+    let isDragging = false;
+    let paused = false;
+    const keysHeld = { up: false, down: false };
+    const left = { y: H / 2 - PADDLE_H / 2, prevY: H / 2 - PADDLE_H / 2 };
+    const right = { y: H / 2 - PADDLE_H / 2, prevY: H / 2 - PADDLE_H / 2 };
+    const score = { left: 0, right: 0 };
+    const ball = { x: W / 2, y: H / 2, vx: 0, vy: 0, r: BALL_R };
+    let running = true;
+    let lastTime = null;
+    configure({
+      height: H,
+      ballR: BALL_R,
+      paddleH: PADDLE_H,
+      contactPlaneLeft: PADDLE_MARGIN + PADDLE_W + BALL_R,
+      contactPlaneRight: W - PADDLE_MARGIN - PADDLE_W - BALL_R
+    });
+    function clamp(v, min, max) {
+      return Math.max(min, Math.min(max, v));
+    }
+    function serveBall(directionTowards) {
+      const angle = Math.random() * 0.6 - 0.3;
+      const dir = directionTowards === "left" ? -1 : 1;
+      ball.x = W / 2;
+      ball.y = H / 2;
+      ball.vx = Math.cos(angle) * BALL_BASE_SPEED * dir;
+      ball.vy = Math.sin(angle) * BALL_BASE_SPEED;
+      onServe(directionTowards, playerSide, controlMode);
+    }
+    function resetGame() {
+      score.left = 0;
+      score.right = 0;
+      left.y = right.y = H / 2 - PADDLE_H / 2;
+      left.prevY = left.y;
+      right.prevY = right.y;
+      updateScoreLabels();
+      statusLine.textContent = "";
+      gameOverOverlay.classList.remove("visible");
+      paused = false;
+      pauseOverlay.classList.remove("visible");
+      pauseBtn.innerHTML = PAUSE_ICON;
+      pauseBtn.setAttribute("aria-label", "Pause");
+      running = true;
+      onGameStart(playerSide);
+      serveBall(Math.random() < 0.5 ? "left" : "right");
       lastTime = null;
       requestAnimationFrame(loop);
     }
-  }
-
-  function togglePause() {
-    if (!running) return; // no pausing once the game has been won
-    setPaused(!paused);
-  }
-
-  function updateScoreLabels() {
-    // names are fixed to physical side (left/right), not to who is "you"
-    leftScoreName.textContent = playerSide === 'left' ? 'You' : 'Bot';
-    rightScoreName.textContent = playerSide === 'right' ? 'You' : 'Bot';
-    leftScoreValue.textContent = score.left;
-    rightScoreValue.textContent = score.right;
-  }
-
-  function setSide(side) {
-    playerSide = side;
-    btnLeft.classList.toggle('active', side === 'left');
-    btnRight.classList.toggle('active', side === 'right');
-    // slider sits on the same physical side as the paddle it controls
-    gameRow.style.flexDirection = side === 'left' ? 'row' : 'row-reverse';
-    updateScoreLabels();
-  }
-
-  btnLeft.addEventListener('click', () => setSide('left'));
-  btnRight.addEventListener('click', () => setSide('right'));
-  restartBtn.addEventListener('click', resetGame);
-  pauseBtn.addEventListener('click', togglePause);
-  // bound to the game window, not the canvas: the pause/game-over overlays
-  // sit on top of the canvas when visible, so a canvas-only listener would
-  // never see a double-click land on the "Paused" overlay itself, and
-  // double-clicking again could never resume the game.
-  gameWindow.addEventListener('dblclick', (e) => {
-    e.preventDefault();
-    togglePause();
-  });
-
-  function setControlMode(mode) {
-    controlMode = mode;
-    modeButtons.forEach((btn) => btn.classList.toggle('active', btn.dataset.mode === mode));
-    slider.disabled = mode !== 'slider';
-    canvas.classList.toggle('drag-active', mode === 'drag');
-    // switching away drops any in-progress input for the old mode so it
-    // can't keep moving the paddle once it's no longer the active source
-    if (mode !== 'drag') isDragging = false;
-    if (mode !== 'keyboard') { keysHeld.up = false; keysHeld.down = false; }
-  }
-
-  modeButtons.forEach((btn) => btn.addEventListener('click', () => setControlMode(btn.dataset.mode)));
-
-  function canvasYToPaddleY(clientY) {
-    const rect = canvas.getBoundingClientRect();
-    const scale = H / rect.height;
-    const y = (clientY - rect.top) * scale;
-    return clamp(y - PADDLE_H / 2, 0, H - PADDLE_H);
-  }
-
-  function dragTo(clientY) {
-    const paddle = playerSide === 'left' ? left : right;
-    paddle.y = canvasYToPaddleY(clientY);
-  }
-
-  canvas.addEventListener('mousedown', (e) => {
-    if (controlMode !== 'drag') return;
-    isDragging = true;
-    dragTo(e.clientY);
-  });
-  window.addEventListener('mousemove', (e) => {
-    if (controlMode !== 'drag' || !isDragging) return;
-    dragTo(e.clientY);
-  });
-  window.addEventListener('mouseup', () => { isDragging = false; });
-
-  canvas.addEventListener('touchstart', (e) => {
-    if (controlMode !== 'drag') return;
-    isDragging = true;
-    dragTo(e.touches[0].clientY);
-    e.preventDefault();
-  }, { passive: false });
-  window.addEventListener('touchmove', (e) => {
-    if (controlMode !== 'drag' || !isDragging) return;
-    dragTo(e.touches[0].clientY);
-    e.preventDefault();
-  }, { passive: false });
-  window.addEventListener('touchend', () => { isDragging = false; });
-
-  window.addEventListener('keydown', (e) => {
-    if (controlMode !== 'keyboard') return;
-    if (e.code === 'ArrowUp' || e.code === 'KeyW') { keysHeld.up = true; e.preventDefault(); }
-    else if (e.code === 'ArrowDown' || e.code === 'KeyS') { keysHeld.down = true; e.preventDefault(); }
-  });
-  window.addEventListener('keyup', (e) => {
-    if (e.code === 'ArrowUp' || e.code === 'KeyW') keysHeld.up = false;
-    else if (e.code === 'ArrowDown' || e.code === 'KeyS') keysHeld.down = false;
-  });
-
-  function readSliderPaddleY() {
-    // slider value 0..1000, top of slider = 1000 (paddle at top, y=0)
-    const maxY = H - PADDLE_H;
-    const frac = Number(slider.value) / 1000;
-    return maxY - frac * maxY;
-  }
-
-  function updatePlayerPaddle(dt) {
-    const paddle = playerSide === 'left' ? left : right;
-    paddle.prevY = paddle.y;
-    // sampled every frame so velocity can later be derived as
-    // (paddle.y - paddle.prevY) / dt — not used yet in Phase 1. That holds
-    // regardless of control mode: slider/drag set paddle.y directly (position),
-    // keyboard integrates a velocity into it — either way this is the one spot
-    // per frame where the active paddle's position for this frame is decided.
-    if (controlMode === 'slider') {
-      paddle.y = readSliderPaddleY();
-    } else if (controlMode === 'keyboard') {
-      let dy = 0;
-      if (keysHeld.up) dy -= PLAYER_KEY_SPEED * dt;
-      if (keysHeld.down) dy += PLAYER_KEY_SPEED * dt;
-      paddle.y = clamp(paddle.y + dy, 0, H - PADDLE_H);
+    function setPaused(next) {
+      paused = next;
+      pauseOverlay.classList.toggle("visible", paused);
+      pauseBtn.innerHTML = paused ? PLAY_ICON : PAUSE_ICON;
+      pauseBtn.setAttribute("aria-label", paused ? "Resume" : "Pause");
+      if (!paused) {
+        lastTime = null;
+        requestAnimationFrame(loop);
+      }
     }
-    // 'drag' mode: paddle.y is already set by the drag handlers above.
-  }
-
-  function updateBotPaddle(dt) {
-    const bot = playerSide === 'left' ? right : left;
-    const target = ball.y - PADDLE_H / 2;
-    const diff = target - bot.y;
-    const maxStep = BOT_MAX_SPEED * dt;
-    bot.prevY = bot.y;
-    if (Math.abs(diff) <= maxStep) {
-      bot.y = target;
-    } else {
-      bot.y += Math.sign(diff) * maxStep;
+    function togglePause() {
+      if (!running) return;
+      setPaused(!paused);
     }
-    bot.y = clamp(bot.y, 0, H - PADDLE_H);
-  }
-
-  function clamp(v, min, max) {
-    return Math.max(min, Math.min(max, v));
-  }
-
-  function step(dt) {
-    updatePlayerPaddle(dt);
-    updateBotPaddle(dt);
-
-    ball.x += ball.vx * dt;
-    ball.y += ball.vy * dt;
-
-    if (ball.y - ball.r < 0) {
-      ball.y = ball.r;
-      ball.vy *= -1;
-    } else if (ball.y + ball.r > H) {
-      ball.y = H - ball.r;
-      ball.vy *= -1;
+    function updateScoreLabels() {
+      leftScoreName.textContent = playerSide === "left" ? "You" : "Bot";
+      rightScoreName.textContent = playerSide === "right" ? "You" : "Bot";
+      leftScoreValue.textContent = String(score.left);
+      rightScoreValue.textContent = String(score.right);
     }
-
-    checkPaddleCollision(left, PADDLE_MARGIN, 1);
-    checkPaddleCollision(right, W - PADDLE_MARGIN - PADDLE_W, -1);
-
-    if (ball.x + ball.r < 0) {
-      awardPoint('right');
-    } else if (ball.x - ball.r > W) {
-      awardPoint('left');
+    function setSide(side) {
+      playerSide = side;
+      btnLeft.classList.toggle("active", side === "left");
+      btnRight.classList.toggle("active", side === "right");
+      gameRow.style.flexDirection = side === "left" ? "row" : "row-reverse";
+      updateScoreLabels();
+      onSideChange(side);
     }
-  }
-
-  function checkPaddleCollision(paddle, paddleX, dirSign) {
-    const withinX = dirSign === 1
-      ? (ball.x - ball.r <= paddleX + PADDLE_W && ball.x - ball.r >= paddleX)
-      : (ball.x + ball.r >= paddleX && ball.x + ball.r <= paddleX + PADDLE_W);
-    const movingTowards = dirSign === 1 ? ball.vx < 0 : ball.vx > 0;
-    if (!withinX || !movingTowards) return;
-
-    const withinY = ball.y + ball.r >= paddle.y && ball.y - ball.r <= paddle.y + PADDLE_H;
-    if (!withinY) return;
-
-    const relative = ((ball.y - (paddle.y + PADDLE_H / 2)) / (PADDLE_H / 2));
-    const bounceAngle = relative * (Math.PI / 3); // max 60 degrees
-    const speed = clamp(Math.hypot(ball.vx, ball.vy) + BALL_SPEED_STEP, BALL_BASE_SPEED, BALL_MAX_SPEED);
-
-    ball.vx = Math.cos(bounceAngle) * speed * dirSign;
-    ball.vy = Math.sin(bounceAngle) * speed;
-    ball.x = dirSign === 1 ? paddleX + PADDLE_W + ball.r : paddleX - ball.r;
-  }
-
-  function awardPoint(side) {
-    score[side] += 1;
-    updateScoreLabels();
-    if (score[side] >= WIN_SCORE) {
-      endGame(side);
-    } else {
-      serveBall(side === 'left' ? 'right' : 'left');
+    btnLeft.addEventListener("click", () => setSide("left"));
+    btnRight.addEventListener("click", () => setSide("right"));
+    restartBtn.addEventListener("click", resetGame);
+    pauseBtn.addEventListener("click", togglePause);
+    gameWindow.addEventListener("dblclick", (e) => {
+      e.preventDefault();
+      togglePause();
+    });
+    function setControlMode(mode) {
+      controlMode = mode;
+      modeButtons.forEach(
+        (btn) => btn.classList.toggle("active", btn.dataset.mode === mode)
+      );
+      slider.disabled = mode !== "slider";
+      canvas.classList.toggle("drag-active", mode === "drag");
+      keySensitivity.classList.toggle("inactive", mode !== "keyboard");
+      if (mode !== "drag") isDragging = false;
+      if (mode !== "keyboard") {
+        keysHeld.up = false;
+        keysHeld.down = false;
+      }
     }
-  }
-
-  function endGame(winningSide) {
-    running = false;
-    const youWon = winningSide === playerSide;
-    statusLine.textContent = youWon ? 'You win!' : 'Bot wins!';
-    gameOverOverlay.classList.add('visible');
-  }
-
-  function draw() {
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0, 0, W, H);
-
-    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-    ctx.setLineDash([6, 10]);
-    ctx.beginPath();
-    ctx.moveTo(W / 2, 0);
-    ctx.lineTo(W / 2, H);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(PADDLE_MARGIN, left.y, PADDLE_W, PADDLE_H);
-    ctx.fillRect(W - PADDLE_MARGIN - PADDLE_W, right.y, PADDLE_W, PADDLE_H);
-
-    ctx.beginPath();
-    ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  function loop(timestamp) {
-    if (!running || paused) return;
-    if (lastTime === null) lastTime = timestamp;
-    const dt = Math.min((timestamp - lastTime) / 1000, 0.033);
-    lastTime = timestamp;
-
-    step(dt);
-    draw();
-
+    modeButtons.forEach(
+      (btn) => btn.addEventListener(
+        "click",
+        () => setControlMode(btn.dataset.mode)
+      )
+    );
+    keySensitivitySlider.max = String(KEY_SPEED_NOTCHES.length - 1);
+    keySensitivitySlider.value = String(getKeySpeedNotch());
+    function syncKeySensitivitySlider() {
+      keySensitivitySlider.value = String(getKeySpeedNotch());
+    }
+    keySensitivitySlider.addEventListener("input", () => {
+      setKeySpeedNotch(Number(keySensitivitySlider.value));
+    });
+    window.addEventListener("keydown", (e) => {
+      if (controlMode !== "keyboard") return;
+      if (e.code === "ArrowLeft") {
+        setKeySpeedNotch(getKeySpeedNotch() - 1);
+        syncKeySensitivitySlider();
+        e.preventDefault();
+      } else if (e.code === "ArrowRight") {
+        setKeySpeedNotch(getKeySpeedNotch() + 1);
+        syncKeySensitivitySlider();
+        e.preventDefault();
+      }
+    });
+    function canvasYToPaddleY(clientY) {
+      const rect = canvas.getBoundingClientRect();
+      const scale = H / rect.height;
+      const y = (clientY - rect.top) * scale;
+      return clamp(y - PADDLE_H / 2, 0, H - PADDLE_H);
+    }
+    function dragTo(clientY) {
+      const paddle = playerSide === "left" ? left : right;
+      paddle.y = canvasYToPaddleY(clientY);
+    }
+    canvas.addEventListener("mousedown", (e) => {
+      if (controlMode !== "drag") return;
+      isDragging = true;
+      dragTo(e.clientY);
+      onPlayerInput("drag");
+    });
+    window.addEventListener("mousemove", (e) => {
+      if (controlMode !== "drag" || !isDragging) return;
+      dragTo(e.clientY);
+    });
+    window.addEventListener("mouseup", () => {
+      isDragging = false;
+    });
+    canvas.addEventListener(
+      "touchstart",
+      (e) => {
+        if (controlMode !== "drag") return;
+        isDragging = true;
+        dragTo(e.touches[0].clientY);
+        onPlayerInput("drag");
+        e.preventDefault();
+      },
+      { passive: false }
+    );
+    window.addEventListener(
+      "touchmove",
+      (e) => {
+        if (controlMode !== "drag" || !isDragging) return;
+        dragTo(e.touches[0].clientY);
+        e.preventDefault();
+      },
+      { passive: false }
+    );
+    window.addEventListener("touchend", () => {
+      isDragging = false;
+    });
+    window.addEventListener("keydown", (e) => {
+      if (controlMode !== "keyboard") return;
+      if (e.code === "ArrowUp" || e.code === "KeyW") {
+        if (!keysHeld.up) onPlayerInput("key");
+        keysHeld.up = true;
+        e.preventDefault();
+      } else if (e.code === "ArrowDown" || e.code === "KeyS") {
+        if (!keysHeld.down) onPlayerInput("key");
+        keysHeld.down = true;
+        e.preventDefault();
+      }
+    });
+    window.addEventListener("keyup", (e) => {
+      if (e.code === "ArrowUp" || e.code === "KeyW") keysHeld.up = false;
+      else if (e.code === "ArrowDown" || e.code === "KeyS") keysHeld.down = false;
+    });
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "Space") {
+        e.preventDefault();
+        togglePause();
+      }
+    });
+    slider.addEventListener("input", () => {
+      if (controlMode === "slider") onPlayerInput("slider");
+    });
+    function readSliderPaddleY() {
+      const maxY = H - PADDLE_H;
+      const frac = Number(slider.value) / 1e3;
+      return maxY - frac * maxY;
+    }
+    function updatePlayerPaddle(dt) {
+      const paddle = playerSide === "left" ? left : right;
+      paddle.prevY = paddle.y;
+      if (controlMode === "slider") {
+        paddle.y = readSliderPaddleY();
+      } else if (controlMode === "keyboard") {
+        const keySpeed = getKeySpeed();
+        let dy = 0;
+        if (keysHeld.up) dy -= keySpeed * dt;
+        if (keysHeld.down) dy += keySpeed * dt;
+        paddle.y = clamp(paddle.y + dy, 0, H - PADDLE_H);
+      }
+    }
+    function updateBotPaddle(dt) {
+      const bot = playerSide === "left" ? right : left;
+      const target = ball.y - PADDLE_H / 2;
+      const diff = target - bot.y;
+      const maxStep = BOT_MAX_SPEED * dt;
+      bot.prevY = bot.y;
+      if (Math.abs(diff) <= maxStep) {
+        bot.y = target;
+      } else {
+        bot.y += Math.sign(diff) * maxStep;
+      }
+      bot.y = clamp(bot.y, 0, H - PADDLE_H);
+    }
+    function step(dt) {
+      updatePlayerPaddle(dt);
+      updateBotPaddle(dt);
+      ball.x += ball.vx * dt;
+      ball.y += ball.vy * dt;
+      if (ball.y - ball.r < 0) {
+        ball.y = ball.r;
+        ball.vy *= -1;
+        onWallBounce();
+      } else if (ball.y + ball.r > H) {
+        ball.y = H - ball.r;
+        ball.vy *= -1;
+        onWallBounce();
+      }
+      checkPaddleCollision(left, PADDLE_MARGIN, 1);
+      checkPaddleCollision(right, W - PADDLE_MARGIN - PADDLE_W, -1);
+      if (ball.x + ball.r < 0) {
+        awardPoint("right");
+      } else if (ball.x - ball.r > W) {
+        awardPoint("left");
+      }
+    }
+    function checkPaddleCollision(paddle, paddleX, dirSign) {
+      const withinX = dirSign === 1 ? ball.x - ball.r <= paddleX + PADDLE_W && ball.x - ball.r >= paddleX : ball.x + ball.r >= paddleX && ball.x + ball.r <= paddleX + PADDLE_W;
+      const movingTowards = dirSign === 1 ? ball.vx < 0 : ball.vx > 0;
+      if (!withinX || !movingTowards) return;
+      const withinY = ball.y + ball.r >= paddle.y && ball.y - ball.r <= paddle.y + PADDLE_H;
+      if (!withinY) return;
+      const relative = (ball.y - (paddle.y + PADDLE_H / 2)) / (PADDLE_H / 2);
+      const bounceAngle = relative * (Math.PI / 3);
+      const speed = clamp(
+        Math.hypot(ball.vx, ball.vy) + BALL_SPEED_STEP,
+        BALL_BASE_SPEED,
+        BALL_MAX_SPEED
+      );
+      ball.vx = Math.cos(bounceAngle) * speed * dirSign;
+      ball.vy = Math.sin(bounceAngle) * speed;
+      ball.x = dirSign === 1 ? paddleX + PADDLE_W + ball.r : paddleX - ball.r;
+      onPaddleHit(
+        dirSign === 1 ? "left" : "right",
+        playerSide,
+        controlMode,
+        ball.y,
+        paddle.y + PADDLE_H / 2
+      );
+    }
+    function awardPoint(side) {
+      score[side] += 1;
+      updateScoreLabels();
+      onPoint(side, playerSide);
+      if (score[side] >= WIN_SCORE) {
+        endGame(side);
+      } else {
+        serveBall(side === "left" ? "right" : "left");
+      }
+    }
+    function endGame(winningSide) {
+      running = false;
+      onGameEnd(winningSide, playerSide, {
+        left: score.left,
+        right: score.right
+      });
+      const youWon = winningSide === playerSide;
+      statusLine.textContent = youWon ? "You win!" : "Bot wins!";
+      gameOverOverlay.classList.add("visible");
+    }
+    function draw() {
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, W, H);
+      ctx.strokeStyle = "rgba(255,255,255,0.35)";
+      ctx.setLineDash([6, 10]);
+      ctx.beginPath();
+      ctx.moveTo(W / 2, 0);
+      ctx.lineTo(W / 2, H);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(PADDLE_MARGIN, left.y, PADDLE_W, PADDLE_H);
+      ctx.fillRect(W - PADDLE_MARGIN - PADDLE_W, right.y, PADDLE_W, PADDLE_H);
+      ctx.beginPath();
+      ctx.arc(ball.x, ball.y, ball.r, 0, Math.PI * 2);
+      ctx.fill();
+      if (debug2) drawPrediction(ctx, getCurrentPrediction());
+    }
+    function loop(timestamp) {
+      if (!running || paused) return;
+      if (lastTime === null) lastTime = timestamp;
+      const dt = Math.min((timestamp - lastTime) / 1e3, 0.033);
+      lastTime = timestamp;
+      beginFrame(dt);
+      step(dt);
+      commitFrame({
+        ball,
+        player: playerSide === "left" ? left : right,
+        bot: playerSide === "left" ? right : left,
+        playerSide,
+        controlMode,
+        score: { left: score.left, right: score.right }
+      });
+      draw();
+      requestAnimationFrame(loop);
+    }
+    setSide("left");
+    setControlMode("slider");
+    onGameStart(playerSide);
+    serveBall(Math.random() < 0.5 ? "left" : "right");
     requestAnimationFrame(loop);
   }
 
-  function applyTheme(theme) {
-    if (theme === 'blue') {
-      document.documentElement.removeAttribute('data-theme');
-    } else {
-      document.documentElement.setAttribute('data-theme', theme);
+  // src/metrics/debug-panel.ts
+  var REFRESH_MS = 140;
+  function n(v, d = 0) {
+    return Number.isFinite(v) ? v.toFixed(d) : "—";
+  }
+  var SECTIONS = [
+    {
+      title: "Match",
+      help: "How play is sliced up so stats can be per-point and per-approach.",
+      rows: [
+        {
+          label: "rally",
+          help: "One rally = a serve until someone scores.",
+          get: (s) => `#${s.rallyIndex}`
+        },
+        {
+          label: "leg",
+          help: "One leg = the ball travelling toward one end (paddle hit to paddle hit). Reaction time and accuracy are measured per leg.",
+          get: (s) => s.currentLeg ? `#${s.legIndex}  → ${s.currentLeg.towardSide} (${s.currentLeg.towardPlayer ? "you" : "bot"})` : `#${s.legIndex}`
+        },
+        {
+          label: "wall bounces",
+          help: "Top/bottom bounces so far this leg — a leg with bounces is harder to read, flagged separately later.",
+          get: (s) => s.currentLeg ? String(s.currentLeg.wallBounces) : "—"
+        },
+        {
+          label: "score",
+          help: "Live score by physical side — sanity check that the recorder agrees with the game.",
+          get: (s) => `${s.score.left} : ${s.score.right}`
+        },
+        {
+          label: "rallies / game",
+          help: "Points played this game.",
+          get: (s) => String(s.ralliesThisGame)
+        },
+        {
+          label: "games saved",
+          help: "Finished games written to browser storage (the player record).",
+          get: (s) => String(s.gamesSaved)
+        },
+        {
+          label: "frames",
+          help: "Per-frame snapshots held in memory. Every derived metric is computed by reading back over these.",
+          get: (s) => `${s.framesBuffered} / ${s.frameCapacity}`
+        }
+      ]
+    },
+    {
+      title: "Ball",
+      help: "Raw inputs for the trajectory predictor and for detecting leg starts/ends.",
+      rows: [
+        {
+          label: "position",
+          help: "Ball centre, canvas pixels.",
+          get: (s) => s.lastFrame ? `(${n(s.lastFrame.ballX)}, ${n(s.lastFrame.ballY)})` : "—"
+        },
+        {
+          label: "velocity",
+          help: "Ball speed, pixels per second.",
+          get: (s) => s.lastFrame ? `(${n(s.lastFrame.ballVx)}, ${n(s.lastFrame.ballVy)}) px/s` : "—"
+        }
+      ]
+    },
+    {
+      title: "Prediction",
+      help: "Where the ball will reach the end it is heading toward. Feeds tracking accuracy, reaction direction, overshoot, and the Phase 3 bot.",
+      rows: [
+        {
+          label: "crosses at",
+          help: "Predicted y where the ball meets the paddle plane.",
+          get: (s) => s.prediction && s.prediction.interceptY !== null ? `y ${n(s.prediction.interceptY)}` : "—"
+        },
+        {
+          label: "time to reach",
+          help: "How long until the ball gets there.",
+          get: (s) => s.prediction && s.prediction.timeToIntercept !== null ? `${n(s.prediction.timeToIntercept * 1e3)} ms` : "—"
+        },
+        {
+          label: "bounces",
+          help: "Wall bounces between now and the intercept.",
+          get: (s) => s.prediction ? String(s.prediction.bounces) : "—"
+        },
+        {
+          label: "f(x)",
+          help: "The path as a piecewise line, y as a function of x. Model version shown.",
+          get: (s) => s.prediction ? `v${s.prediction.version} ${formatRule(s.prediction, 1)}` : "—"
+        }
+      ]
+    },
+    {
+      title: "Paddle · you",
+      help: "Raw signal for velocity, distance travelled, and tracking accuracy.",
+      rows: [
+        {
+          label: "position",
+          help: "Top edge of your paddle, canvas pixels.",
+          get: (s) => s.lastFrame ? `y ${n(s.lastFrame.playerY)}` : "—"
+        },
+        {
+          label: "velocity",
+          help: "Your paddle speed now, and a smoothed value in ( ). Pixels per second.",
+          get: (s) => `${n(s.playerVy)} px/s  (~${n(s.playerVySmoothed)})`
+        },
+        {
+          label: "mode",
+          help: "Active control mode and side. Every metric is tagged with these so modes can be compared.",
+          get: (s) => s.lastFrame ? `${s.lastFrame.controlMode}${s.lastFrame.controlMode === "keyboard" ? ` · notch ${s.lastFrame.keySpeedNotch}` : ""} · ${s.lastFrame.playerSide}` : "—"
+        }
+      ]
+    },
+    {
+      title: "Reaction · this leg",
+      help: 'How long from the ball turning toward you until you move toward where it is going. Player legs only. If you were already in position it reads "not needed" and is left out of the averages.',
+      rows: [
+        {
+          label: "status",
+          help: "Whether the paddle was out of position when the ball turned toward you.",
+          get: (s) => s.reaction ? s.reaction.needed ? `needed (off ${n(s.reaction.offsetAtStimulusPx)} px)` : `not needed (off ${n(s.reaction.offsetAtStimulusPx)} px)` : "—"
+        },
+        {
+          label: "since stimulus",
+          help: "Time since the ball turned toward you this leg.",
+          get: (s) => s.reaction ? `${n(s.reaction.sinceStimulusMs)} ms` : "—"
+        },
+        {
+          label: "from movement",
+          help: "Latency measured from the first deliberate paddle move toward the intercept. Works in every mode.",
+          get: (s) => s.reaction && s.reaction.derivedMs !== null ? `${n(s.reaction.derivedMs)} ms` : s.reaction ? "waiting…" : "—"
+        },
+        {
+          label: "from input",
+          help: "Latency measured from the raw input event (keypress / paddle grab / slider nudge). Blank if the mode gives no such event.",
+          get: (s) => s.reaction && s.reaction.inputMs !== null ? `${n(s.reaction.inputMs)} ms (${s.reaction.inputKind})` : s.reaction ? "waiting…" : "—"
+        }
+      ]
+    },
+    {
+      title: "Accuracy",
+      help: "Contact = how cleanly the ball met the paddle (0 centre, ~1 edge, >1 miss); it measures control, not shot choice. Tracking = how closely the paddle followed the predicted path. Overshoot = sailed past the target and came back.",
+      rows: [
+        {
+          label: "tracking err (leg)",
+          help: "Mean distance between paddle centre and the predicted intercept, so far this leg.",
+          get: (s) => s.accuracy ? `${n(s.accuracy.meanTrackingErrorPx)} px` : "—"
+        },
+        {
+          label: "overshoot (leg)",
+          help: "Furthest the paddle has gone past the predicted intercept this leg.",
+          get: (s) => s.accuracy ? `${n(s.accuracy.overshootPx)} px` : "—"
+        },
+        {
+          label: "last approach",
+          help: "The last completed leg where the ball came at you: contact offset (normalised) and reaction latency.",
+          get: (s) => {
+            const l = s.lastPlayerLeg;
+            if (!l) return "—";
+            const a = l.accuracy ? l.accuracy.madeContact ? `contact ${l.accuracy.contactOffsetNorm}` : `missed (${l.accuracy.contactOffsetNorm})` : "contact —";
+            const r = l.reaction && l.reaction.needed && l.reaction.derivedMs !== null ? ` · ${l.reaction.derivedMs} ms` : l.reaction && !l.reaction.needed ? " · in position" : "";
+            return a + r;
+          }
+        }
+      ]
+    },
+    {
+      title: "Streaks",
+      help: "Rally outcomes from your point of view, and the longest runs.",
+      rows: [
+        {
+          label: "recent",
+          help: "Last rallies, newest on the right. W = you won the point.",
+          get: (s) => s.streaks.outcomes.slice(-14).join("") || "—"
+        },
+        {
+          label: "current",
+          help: "Current win or loss run.",
+          get: (s) => s.streaks.currentWin > 0 ? `${s.streaks.currentWin} W` : s.streaks.currentLoss > 0 ? `${s.streaks.currentLoss} L` : "—"
+        },
+        {
+          label: "longest",
+          help: "Longest win run / longest loss run this game.",
+          get: (s) => `${s.streaks.longestWin} W  /  ${s.streaks.longestLoss} L`
+        }
+      ]
+    },
+    {
+      title: "Movement · this leg",
+      help: "The other four movement-pattern metrics (overshoot is in Accuracy above). Resets each leg.",
+      rows: [
+        {
+          label: "distance moved",
+          help: "Total paddle travel this leg — low = economical, high = busy.",
+          get: (s) => s.currentLegMovement ? `${n(s.currentLegMovement.travelPx)} px` : "—"
+        },
+        {
+          label: "direction changes",
+          help: "Times you reversed (past a jitter deadband) — few = decisive, many = scrambling.",
+          get: (s) => s.currentLegMovement ? String(s.currentLegMovement.directionChanges) : "—"
+        },
+        {
+          label: "idle",
+          help: "Share of the leg spent not moving the paddle.",
+          get: (s) => s.currentLegMovement ? `${n(s.currentLegMovement.idleFraction * 100)} %` : "—"
+        },
+        {
+          label: "peak speed",
+          help: "Fastest the paddle moved this leg.",
+          get: (s) => s.currentLegMovement ? `${n(s.currentLegMovement.peakSpeedPxS)} px/s` : "—"
+        },
+        {
+          label: "mean speed",
+          help: "Average paddle speed while actually moving.",
+          get: (s) => s.currentLegMovement ? `${n(s.currentLegMovement.meanMovingSpeedPxS)} px/s` : "—"
+        }
+      ]
     }
-    themeOptions.forEach((btn) => btn.classList.toggle('active', btn.dataset.theme === theme));
-    try {
-      localStorage.setItem('pongTheme', theme);
-    } catch (e) {
-      // localStorage unavailable (private mode, locked-down settings, etc.) --
-      // the theme still applies for this session, it just won't persist.
+  ];
+  var STYLE = `
+#pong-debug-panel{position:fixed;bottom:14px;left:14px;z-index:9999;width:252px;
+  max-height:calc(100vh - 28px);overflow:auto;
+  font:11px/1.5 "Courier New",Consolas,monospace;color:#1c2e40;
+  background:rgba(255,255,255,0.95);border:1px solid #26415c;
+  box-shadow:0 2px 12px rgba(0,0,0,0.14);padding-bottom:6px}
+#pong-debug-panel .p-hdr{display:flex;justify-content:space-between;align-items:baseline;
+  padding:5px 10px;border-bottom:1px solid rgba(38,65,92,0.22);
+  background:rgba(38,65,92,0.05);font-weight:700;letter-spacing:0.03em}
+#pong-debug-panel .p-hdr button{font:inherit;font-weight:700;border:1px solid #26415c;
+  background:transparent;color:inherit;cursor:pointer;padding:0 5px;line-height:1.3;border-radius:3px}
+#pong-debug-panel .p-sec{padding:0 10px;margin-top:7px;font-size:9px;letter-spacing:0.09em;
+  text-transform:uppercase;opacity:0.55}
+#pong-debug-panel .p-row{display:flex;justify-content:space-between;gap:10px;padding:0 10px}
+#pong-debug-panel .p-row .l{opacity:0.6;white-space:nowrap}
+#pong-debug-panel .p-row .v{text-align:right;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+#pong-debug-panel .p-help{display:none;padding:1px 10px 4px;font-size:9px;line-height:1.35;
+  opacity:0.5;font-style:italic}
+#pong-debug-panel.show-help .p-help{display:block}
+`;
+  function initDebugPanel() {
+    if (document.getElementById("pong-debug-panel")) return;
+    const style = document.createElement("style");
+    style.textContent = STYLE;
+    document.head.appendChild(style);
+    const panel = document.createElement("div");
+    panel.id = "pong-debug-panel";
+    const header = document.createElement("div");
+    header.className = "p-hdr";
+    const title = document.createElement("span");
+    title.textContent = "pong metrics";
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.textContent = "?";
+    toggle.title = "Show / hide what each row measures";
+    toggle.addEventListener("click", () => panel.classList.toggle("show-help"));
+    header.append(title, toggle);
+    panel.appendChild(header);
+    const valueCells = [];
+    for (const section of SECTIONS) {
+      const st = document.createElement("div");
+      st.className = "p-sec";
+      st.textContent = section.title;
+      panel.appendChild(st);
+      const sh = document.createElement("div");
+      sh.className = "p-help";
+      sh.textContent = section.help;
+      panel.appendChild(sh);
+      for (const row of section.rows) {
+        const r = document.createElement("div");
+        r.className = "p-row";
+        r.title = row.help;
+        const l = document.createElement("span");
+        l.className = "l";
+        l.textContent = row.label;
+        const v = document.createElement("span");
+        v.className = "v";
+        r.append(l, v);
+        panel.appendChild(r);
+        const rh = document.createElement("div");
+        rh.className = "p-help";
+        rh.textContent = row.help;
+        panel.appendChild(rh);
+        valueCells.push({ cell: v, get: row.get });
+      }
     }
+    document.body.appendChild(panel);
+    function render() {
+      const s = getSnapshot();
+      for (const { cell, get } of valueCells) cell.textContent = get(s);
+    }
+    render();
+    window.setInterval(render, REFRESH_MS);
   }
 
-  function applyTextSize(size) {
-    if (size === 'normal') {
-      document.documentElement.removeAttribute('data-text-size');
-    } else {
-      document.documentElement.setAttribute('data-text-size', size);
-    }
-    textSizeOptions.forEach((btn) => btn.classList.toggle('active', btn.dataset.size === size));
-    try {
-      localStorage.setItem('pongTextSize', size);
-    } catch (e) {
-      // localStorage unavailable -- applies for this session only.
-    }
+  // src/main.ts
+  var debug = window.location.hash.toLowerCase().includes("debug");
+  initSettings();
+  initGame({ debug });
+  if (debug) {
+    initDebugPanel();
   }
-
-  settingsTrigger.addEventListener('click', () => {
-    settingsPanel.classList.toggle('open');
-  });
-
-  themeOptions.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      applyTheme(btn.dataset.theme);
-      settingsPanel.classList.remove('open');
-    });
-  });
-
-  textSizeOptions.forEach((btn) => {
-    btn.addEventListener('click', () => {
-      applyTextSize(btn.dataset.size);
-      settingsPanel.classList.remove('open');
-    });
-  });
-
-  document.addEventListener('click', (e) => {
-    if (!settingsPanel.contains(e.target) && !settingsTrigger.contains(e.target)) {
-      settingsPanel.classList.remove('open');
+  globalThis.__pongMetrics = {
+    getFrames,
+    getSnapshot,
+    getCurrentGame,
+    getSavedGames,
+    dump,
+    downloadJSON() {
+      const blob = new Blob([JSON.stringify(dump(), null, 2)], {
+        type: "application/json"
+      });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `pong-metrics-${Date.now()}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
     }
-  });
-
-  let savedTheme = null;
-  let savedTextSize = null;
-  try {
-    savedTheme = localStorage.getItem('pongTheme');
-    savedTextSize = localStorage.getItem('pongTextSize');
-  } catch (e) {
-    // ignore -- fall back to the defaults
-  }
-  if (savedTheme) applyTheme(savedTheme);
-  if (savedTextSize) applyTextSize(savedTextSize);
-
-  setSide('left');
-  setControlMode('slider');
-  serveBall(Math.random() < 0.5 ? 'left' : 'right');
-  requestAnimationFrame(loop);
+  };
 })();
 </script>
 </body>

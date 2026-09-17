@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Pong — Phase 1</title>
+<style>
+  :root {
+    --grid-line: rgba(64, 145, 220, 0.4);
+    --grid-bg: #ffffff;
+    --window-border: #26415c;
+    --ink: #1c2e40;
+    --accent: #2f6fb0;
+    --grid-line-soft: rgba(64, 145, 220, 0.22);
+  }
+
+  /* Alternate color palettes -- same blueprint concept, different hue.
+     Each keeps the default palette's saturation/lightness structure,
+     just rotated to a different hue, so none of them read as more
+     "finished" than the others. --grid-bg stays white in every palette;
+     only the ink/line/accent hue changes. */
+  :root[data-theme="yellow"] {
+    --grid-line: rgba(217, 180, 69, 0.4);
+    --grid-line-soft: rgba(217, 180, 69, 0.22);
+    --window-border: #5a4d26;
+    --ink: #433a1e;
+    --accent: #b09030;
+  }
+
+  :root[data-theme="green"] {
+    --grid-line: rgba(69, 217, 130, 0.4);
+    --grid-line-soft: rgba(69, 217, 130, 0.22);
+    --window-border: #265a3b;
+    --ink: #1e432d;
+    --accent: #30b066;
+  }
+
+  :root[data-theme="violet"] {
+    --grid-line: rgba(130, 69, 217, 0.4);
+    --grid-line-soft: rgba(130, 69, 217, 0.22);
+    --window-border: #3b265a;
+    --ink: #2d1e43;
+    --accent: #6630b0;
+  }
+
+  * { box-sizing: border-box; }
+
+  /* Text size: everything on the page is sized in rem, so scaling the
+     root font-size scales all of it together -- no need to touch each
+     rule individually. Kept modest so text doesn't overflow the
+     fixed-width boxes (mode-picker cards, settings panel, etc.). */
+  html[data-text-size="large"] { font-size: 114%; }
+  html[data-text-size="xlarge"] { font-size: 128%; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    background-color: var(--grid-bg);
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 24px 24px;
+    font-family: "Courier New", Consolas, monospace;
+    color: var(--ink);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .page {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 18px;
+    padding: 32px 16px;
+  }
+
+  .wordmark {
+    position: fixed;
+    top: 24px;
+    left: 32px;
+    font-size: 3.1rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    line-height: 1;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+
+  .wordmark .tld {
+    color: var(--accent);
+  }
+
+  .social-links {
+    position: fixed;
+    bottom: 22px;
+    right: 32px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+  }
+
+  .social-links a {
+    display: flex;
+    color: var(--ink);
+    opacity: 0.7;
+    transition: opacity 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  }
+
+  .social-links a:hover {
+    opacity: 1;
+    color: var(--accent);
+    transform: translateY(-2px);
+  }
+
+  .social-links svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .social-links img {
+    width: 22px;
+    height: 22px;
+    object-fit: contain;
+    border-radius: 3px;
+  }
+
+  .settings-trigger {
+    position: fixed;
+    top: 24px;
+    right: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    border: 1.5px solid var(--window-border);
+    background: #fff;
+    color: var(--ink);
+    cursor: pointer;
+  }
+
+  .settings-trigger:hover {
+    background: rgba(38, 65, 92, 0.08);
+  }
+
+  .settings-trigger svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .settings-panel {
+    position: fixed;
+    top: 64px;
+    right: 32px;
+    display: none;
+    flex-direction: column;
+    gap: 4px;
+    padding: 10px;
+    border: 1.5px solid var(--window-border);
+    background: #fff;
+    min-width: 130px;
+  }
+
+  .settings-panel.open {
+    display: flex;
+  }
+
+  .settings-panel-label {
+    font-size: 0.64rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    opacity: 0.6;
+    margin-bottom: 2px;
+  }
+
+  .theme-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 5px 6px;
+    border: 1px solid transparent;
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.74rem;
+    color: var(--ink);
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .theme-option:hover {
+    background: rgba(38, 65, 92, 0.06);
+  }
+
+  .theme-option.active {
+    border-color: var(--window-border);
+  }
+
+  .theme-swatch {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    flex-shrink: 0;
+  }
+
+  .settings-divider {
+    height: 1px;
+    background: rgba(38, 65, 92, 0.15);
+    margin: 6px 0;
+  }
+
+  .text-size-row {
+    display: flex;
+    gap: 6px;
+  }
+
+  .text-size-option {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 0;
+    border: 1px solid var(--window-border);
+    background: transparent;
+    font-family: inherit;
+    color: var(--ink);
+    cursor: pointer;
+    line-height: 1;
+  }
+
+  .text-size-option:hover {
+    background: rgba(38, 65, 92, 0.06);
+  }
+
+  .text-size-option.active {
+    background: var(--window-border);
+    color: var(--grid-bg);
+  }
+
+  .text-size-option[data-size="normal"] { font-size: 0.7rem; }
+  .text-size-option[data-size="large"] { font-size: 0.9rem; }
+  .text-size-option[data-size="xlarge"] { font-size: 1.1rem; }
+
+  .controls-bar {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .side-select {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .side-select span {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    opacity: 0.7;
+  }
+
+  .side-btn {
+    font-family: inherit;
+    font-size: 0.8rem;
+    padding: 6px 12px;
+    border: 1.5px solid var(--window-border);
+    background: transparent;
+    color: var(--ink);
+    cursor: pointer;
+    letter-spacing: 0.04em;
+  }
+
+  .pause-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 10px;
+    margin-left: 4px;
+  }
+
+  .pause-btn:hover {
+    background: rgba(38, 65, 92, 0.08);
+  }
+
+  .side-btn.active {
+    background: var(--window-border);
+    color: var(--grid-bg);
+  }
+
+  .scoreboard-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .scoreboard {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    padding: 10px 24px;
+    border: 1.5px solid var(--window-border);
+    background: rgba(38, 65, 92, 0.03);
+  }
+
+  .score-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    min-width: 56px;
+  }
+
+  .score-name {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    opacity: 0.65;
+  }
+
+  .score-value {
+    font-size: 1.7rem;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--ink);
+  }
+
+  .score-sep {
+    width: 1px;
+    height: 28px;
+    background: rgba(38, 65, 92, 0.25);
+  }
+
+  .win-note {
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    opacity: 0.55;
+  }
+
+  .game-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 20px;
+  }
+
+  .slider-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    /* matches .game-window's rendered height (500px canvas + 6px border
+       on each side) so the slider centers against the canvas alone, not
+       the taller column below it (footer + control-mode picker) */
+    height: 512px;
+    order: 0;
+  }
+
+  .slider-block .label {
+    font-size: 0.7rem;
+    opacity: 0.7;
+    text-transform: uppercase;
+  }
+
+  .vertical-slider {
+    writing-mode: vertical-lr;
+    direction: rtl;
+    appearance: slider-vertical;
+    -webkit-appearance: slider-vertical;
+    width: 28px;
+    height: 420px;
+    accent-color: var(--accent);
+  }
+
+  .vertical-slider:disabled {
+    opacity: 0.32;
+    cursor: not-allowed;
+  }
+
+  .game-column {
+    display: inline-flex;
+    flex-direction: column;
+    order: 1;
+  }
+
+  .game-window {
+    position: relative;
+    border: 6px solid var(--window-border);
+    background: #000;
+    line-height: 0;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .game-footer {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 10px;
+  }
+
+  canvas {
+    display: block;
+    background: #000;
+    user-select: none;
+  }
+
+  canvas.drag-active {
+    cursor: ns-resize;
+  }
+
+  .paused-text {
+    font-size: 2.1rem;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: #fff;
+    animation: pulse-size 1.8s ease-in-out infinite;
+  }
+
+  @keyframes pulse-size {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.18); }
+  }
+
+  .control-mode-section {
+    margin-top: 20px;
+  }
+
+  .control-mode-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    opacity: 0.6;
+    text-align: center;
+    margin-bottom: 12px;
+  }
+
+  .mode-picker {
+    display: flex;
+    justify-content: center;
+    gap: 14px;
+  }
+
+  /* Keyboard-sensitivity slider: only meaningful in keyboard control mode, but
+     its space is reserved in every mode (min-height) so switching modes doesn't
+     shift the canvas. It just fades out when it isn't the active mode. */
+  .key-sensitivity {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 14px;
+    min-height: 26px;
+    transition: opacity 0.15s ease;
+  }
+
+  .key-sensitivity.inactive {
+    opacity: 0;
+    visibility: hidden;
+  }
+
+  .key-sensitivity-label {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    opacity: 0.6;
+  }
+
+  .key-sensitivity-slider {
+    width: 132px;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  .mode-card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 108px;
+    padding: 14px 8px 12px;
+    border-radius: 16px;
+    border: 1.5px solid var(--window-border);
+    background: #fff;
+    color: var(--ink);
+    font-family: inherit;
+    cursor: pointer;
+    position: relative;
+    transition: transform 0.15s ease, border-color 0.15s ease;
+  }
+
+  .mode-card:hover:not(.active) {
+    background: rgba(38, 65, 92, 0.06);
+  }
+
+  .mode-card.active {
+    border-color: var(--accent);
+    border-width: 2px;
+    transform: scale(1.04);
+  }
+
+  .mode-card.active::after {
+    content: "";
+    position: absolute;
+    top: -5px;
+    right: -5px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  .icon-badge {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    border: 1px solid rgba(38, 65, 92, 0.18);
+    background-color: rgba(38, 65, 92, 0.04);
+    background-image:
+      linear-gradient(var(--grid-line-soft) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line-soft) 1px, transparent 1px);
+    background-size: 8px 8px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--ink);
+  }
+
+  .mode-card.active .icon-badge {
+    border-color: rgba(47, 111, 176, 0.35);
+    background-color: rgba(47, 111, 176, 0.08);
+    color: var(--accent);
+  }
+
+  .mode-card .mode-label {
+    font-size: 0.66rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-align: center;
+  }
+
+  .slider-thumb {
+    animation: slide-thumb 2.2s ease-in-out infinite;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  @keyframes slide-thumb {
+    0%, 100% { transform: translateY(-7px); }
+    50% { transform: translateY(7px); }
+  }
+
+  .drag-cursor {
+    animation: bob-cursor 1.8s ease-in-out infinite;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  @keyframes bob-cursor {
+    0%, 100% { transform: translateY(-4px); }
+    50% { transform: translateY(4px); }
+  }
+
+  .key-up {
+    animation: press-pulse 2s ease-in-out infinite;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  .key-down {
+    animation: press-pulse 2s ease-in-out infinite;
+    animation-delay: 1s;
+    transform-box: fill-box;
+    transform-origin: center;
+  }
+  @keyframes press-pulse {
+    0%, 40%, 100% { opacity: 0.35; }
+    15% { opacity: 1; }
+  }
+
+  .game-over-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    background: rgba(0, 0, 0, 0.72);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.15s ease;
+  }
+
+  .game-over-overlay.visible {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .status-line {
+    font-size: 1.1rem;
+    letter-spacing: 0.05em;
+    text-align: center;
+    color: #fff;
+  }
+
+  .restart-btn {
+    font-family: inherit;
+    font-size: 0.8rem;
+    padding: 6px 14px;
+    border: 1.5px solid #fff;
+    background: transparent;
+    color: #fff;
+    cursor: pointer;
+  }
+</style>
+</head>
+<body>
+<div class="wordmark">llmpong<span class="tld">.com</span></div>
+
+<button class="settings-trigger" id="settingsTrigger" type="button" aria-label="Settings">
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6"/>
+    <path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.56 1.56M16.84 16.84l1.56 1.56M18.4 5.6l-1.56 1.56M7.16 16.84l-1.56 1.56" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+  </svg>
+</button>
+<div class="settings-panel" id="settingsPanel">
+  <div class="settings-panel-label">Theme</div>
+  <button class="theme-option active" data-theme="blue" type="button">
+    <span class="theme-swatch" style="background:#3072b0;"></span>Blue
+  </button>
+  <button class="theme-option" data-theme="yellow" type="button">
+    <span class="theme-swatch" style="background:#b09030;"></span>Yellow
+  </button>
+  <button class="theme-option" data-theme="green" type="button">
+    <span class="theme-swatch" style="background:#30b066;"></span>Green
+  </button>
+  <button class="theme-option" data-theme="violet" type="button">
+    <span class="theme-swatch" style="background:#6630b0;"></span>Violet
+  </button>
+  <div class="settings-divider"></div>
+  <div class="settings-panel-label">Text Size</div>
+  <div class="text-size-row">
+    <button class="text-size-option active" data-size="normal" type="button" aria-label="Normal text size">A</button>
+    <button class="text-size-option" data-size="large" type="button" aria-label="Large text size">A</button>
+    <button class="text-size-option" data-size="xlarge" type="button" aria-label="Extra large text size">A</button>
+  </div>
+</div>
+
+<div class="social-links">
+  <a href="https://github.com/bootupAbdullah/llm_pong" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 0C5.37 0 0 5.5 0 12.26c0 5.41 3.44 10 8.21 11.62.6.11.82-.27.82-.6 0-.29-.01-1.07-.02-2.11-3.34.74-4.04-1.64-4.04-1.64-.55-1.42-1.34-1.81-1.34-1.81-1.09-.77.08-.75.08-.75 1.21.09 1.84 1.27 1.84 1.27 1.07 1.87 2.81 1.33 3.49 1.02.11-.79.42-1.33.76-1.64-2.67-.31-5.47-1.36-5.47-6.06 0-1.34.46-2.43 1.22-3.29-.12-.31-.53-1.56.12-3.25 0 0 1-.33 3.3 1.26a11.24 11.24 0 0 1 6 0c2.29-1.59 3.29-1.26 3.29-1.26.65 1.69.24 2.94.12 3.25.76.86 1.22 1.95 1.22 3.29 0 4.71-2.81 5.75-5.49 6.05.43.38.81 1.13.81 2.29 0 1.65-.02 2.98-.02 3.39 0 .33.22.72.83.6C20.57 22.25 24 17.66 24 12.26 24 5.5 18.63 0 12 0Z"/>
+    </svg>
+  </a>
+  <a href="https://www.linkedin.com/in/abdullahdse/" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <rect x="1" y="1" width="22" height="22" rx="4" stroke="currentColor" stroke-width="1.6"/>
+      <rect x="5.4" y="9.5" width="2.4" height="9" fill="currentColor"/>
+      <circle cx="6.6" cy="6" r="1.5" fill="currentColor"/>
+      <path d="M10.4 9.5h2.3v1.3c.5-.8 1.4-1.5 3-1.5 3.1 0 3.7 2 3.7 4.6v5.6h-2.4v-5c0-1.2 0-2.7-1.7-2.7-1.7 0-1.9 1.3-1.9 2.6v5.1h-2.4V9.5Z" fill="currentColor"/>
+    </svg>
+  </a>
+  <a href="https://bsky.app/profile/layinthegrass.bsky.social" target="_blank" rel="noopener noreferrer" aria-label="Bluesky">
+    <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M12 8.6C10.6 5.7 7.9 3.4 5.2 3c-1.6-.2-2.9.2-2.9 2 0 .4.1 3.9.2 4.5.4 2.2 2.6 2.8 4.6 2.5-3.3.5-6.2 1.9-2.4 6.1 4.2 4.5 5.8-1 6.3-2.6.5 1.6 1.6 6.9 6.3 2.6 3.6-3.9 1-5.7-2.4-6.1 2-.3 4.2-.9 4.6-2.5.1-.6.2-4.1.2-4.5 0-1.8-1.3-2.2-2.9-2-2.7.4-5.4 2.7-6.8 5.6Z"/>
+    </svg>
+  </a>
+  <a href="https://akddev.co/" target="_blank" rel="noopener noreferrer" aria-label="Personal website">
+    <img src="data:image/png;base64,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" alt="Personal website">
+  </a>
+</div>
+
+<div class="page">
+  <div class="controls-bar">
+    <div class="scoreboard-block">
+      <div class="scoreboard">
+        <div class="score-block">
+          <span class="score-name" id="leftScoreName">You</span>
+          <span class="score-value" id="leftScoreValue">0</span>
+        </div>
+        <div class="score-sep"></div>
+        <div class="score-block">
+          <span class="score-name" id="rightScoreName">Bot</span>
+          <span class="score-value" id="rightScoreValue">0</span>
+        </div>
+      </div>
+      <span class="win-note">First to 11</span>
+    </div>
+  </div>
+
+  <div class="game-row" id="gameRow">
+    <div class="slider-block">
+      <span class="label">Paddle</span>
+      <input type="range" class="vertical-slider" id="paddleSlider" min="0" max="1000" value="500">
+    </div>
+    <div class="game-column">
+      <div class="game-window" id="gameWindow">
+        <canvas id="pongCanvas" width="800" height="500"></canvas>
+        <div class="game-over-overlay" id="gameOverOverlay">
+          <div class="status-line" id="statusLine"></div>
+          <button class="restart-btn" id="restartBtn" type="button">Play Again</button>
+        </div>
+        <div class="game-over-overlay" id="pauseOverlay">
+          <div class="paused-text">Paused</div>
+        </div>
+      </div>
+      <div class="game-footer">
+        <div class="side-select">
+          <span>Play as:</span>
+          <button class="side-btn active" id="btnLeft" type="button">Left</button>
+          <button class="side-btn" id="btnRight" type="button">Right</button>
+          <button class="side-btn pause-btn" id="pauseBtn" type="button" aria-label="Pause">
+            <svg id="pauseIcon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+              <rect x="6" y="4" width="4" height="16" rx="1"/>
+              <rect x="14" y="4" width="4" height="16" rx="1"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <div class="control-mode-section">
+        <div class="control-mode-label">Control mode</div>
+        <div class="mode-picker" id="modePicker">
+          <button class="mode-card active" id="modeSlider" type="button" data-mode="slider">
+            <div class="icon-badge">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <line x1="12" y1="2" x2="12" y2="22" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/>
+                <rect class="slider-thumb" x="7" y="9" width="10" height="6" rx="1.5" stroke="currentColor" stroke-width="1.6"/>
+              </svg>
+            </div>
+            <span class="mode-label">Slider</span>
+          </button>
+          <button class="mode-card" id="modeDrag" type="button" data-mode="drag">
+            <div class="icon-badge">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path class="drag-cursor" d="M5 3.5 L6.4 18.5 L9.3 14.6 L11.8 20 L13.9 19 L11.4 13.7 L16.2 13.4 Z" fill="currentColor"/>
+              </svg>
+            </div>
+            <span class="mode-label">Click &amp; Drag</span>
+          </button>
+          <button class="mode-card" id="modeKeyboard" type="button" data-mode="keyboard">
+            <div class="icon-badge">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <rect class="key-up" x="2" y="3" width="10" height="9" rx="2" stroke="currentColor" stroke-width="1.6"/>
+                <path class="key-up" d="M4.5 9.3 L7 6.7 L9.5 9.3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                <rect class="key-down" x="12" y="12" width="10" height="9" rx="2" stroke="currentColor" stroke-width="1.6"/>
+                <path class="key-down" d="M14.5 15.7 L17 18.3 L19.5 15.7" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+              </svg>
+            </div>
+            <span class="mode-label">Keyboard</span>
+          </button>
+        </div>
+        <div class="key-sensitivity inactive" id="keySensitivity">
+          <label class="key-sensitivity-label" for="keySensitivitySlider">Keyboard sensitivity</label>
+          <input type="range" class="key-sensitivity-slider" id="keySensitivitySlider" min="0" max="4" step="1" value="0" aria-label="Keyboard paddle sensitivity">
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* BUILD:INLINE_JS */
+</script>
+</body>
+</html>
