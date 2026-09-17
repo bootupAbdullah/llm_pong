@@ -6,8 +6,7 @@ export type Side = 'left' | 'right';
 /** How the player's paddle is currently being driven. */
 export type ControlMode = 'slider' | 'drag' | 'keyboard';
 
-/** Bot difficulty tier. Stage 0 (Phase 3): persisted pref only, not yet
- * wired to bot behaviour. */
+/** Bot difficulty tier. Drives BOT_TUNING in constants.ts (Phase 3 Stage 1). */
 export type Difficulty = 'easy' | 'medium' | 'hard';
 
 export interface Paddle {

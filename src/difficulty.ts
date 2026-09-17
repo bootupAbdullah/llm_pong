@@ -1,8 +1,7 @@
-// Bot difficulty preference. Stage 0 (Phase 3): persisted pref only, not yet
-// read by the bot — updateBotPaddle() in game.ts still uses the fixed
-// BOT_MAX_SPEED. Later Phase 3 stages make the bot read this. Own persistence,
-// same shape as prefs.ts (keyboard sensitivity) — a game-control preference,
-// not a site-wide setting, so it stays out of the settings menu.
+// Bot difficulty preference. Read by updateBotPaddle() in game.ts (Phase 3
+// Stage 1) via BOT_TUNING in constants.ts. Own persistence, same shape as
+// prefs.ts (keyboard sensitivity) — a game-control preference, not a
+// site-wide setting, so it stays out of the settings menu.
 
 import type { Difficulty } from './types';
 import { DEFAULT_DIFFICULTY } from './constants';

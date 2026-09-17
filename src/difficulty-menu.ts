@@ -1,7 +1,7 @@
 // Difficulty dropdown: a small fixed-position trigger + panel stacked below
 // the settings (theme) menu, same self-contained shape as settings.ts.
-// Stage 0 (Phase 3): writes the persisted preference via difficulty.ts only
-// — the bot doesn't read it yet, that's a later stage.
+// Writes the persisted preference via difficulty.ts; game.ts reads it every
+// frame in updateBotPaddle() (Phase 3 Stage 1).
 
 import { byId } from './dom';
 import { getDifficulty, setDifficulty } from './difficulty';

@@ -6,6 +6,7 @@
 
 import { byId } from './dom';
 import { getKeySpeed, getKeySpeedNotch, setKeySpeedNotch } from './prefs';
+import { getDifficulty } from './difficulty';
 import * as recorder from './metrics/recorder';
 import { drawPrediction } from './metrics/overlay';
 import type { Ball, ControlMode, Paddle, Score, Side } from './types';
@@ -14,7 +15,7 @@ import {
   BALL_MAX_SPEED,
   BALL_R,
   BALL_SPEED_STEP,
-  BOT_MAX_SPEED,
+  BOT_TUNING,
   KEY_SPEED_NOTCHES,
   PADDLE_H,
   PADDLE_MARGIN,
@@ -69,6 +70,14 @@ export function initGame(opts: { debug?: boolean } = {}): void {
   let running = true;
   let lastTime: number | null = null;
 
+  // Bot imperfection state (Phase 3 Stage 1). botPerceivedY lags the ball's
+  // real position (reactionDelayMs) instead of tracking it instantly;
+  // botTrackingError is a random aim offset re-rolled each time the ball's
+  // horizontal direction flips (i.e. a new leg).
+  let botPerceivedY = H / 2 - PADDLE_H / 2;
+  let botTrackingError = 0;
+  let botLastBallVxSign = 0;
+
   // fixed playfield geometry, for the metrics predictor — the x planes where the
   // ball centre sits when it contacts each paddle (mirror of checkPaddleCollision)
   recorder.configure({
@@ -99,6 +108,9 @@ export function initGame(opts: { debug?: boolean } = {}): void {
     left.y = right.y = H / 2 - PADDLE_H / 2;
     left.prevY = left.y;
     right.prevY = right.y;
+    botPerceivedY = H / 2 - PADDLE_H / 2;
+    botTrackingError = 0;
+    botLastBallVxSign = 0;
     updateScoreLabels();
     statusLine.textContent = '';
     gameOverOverlay.classList.remove('visible');
@@ -328,9 +340,29 @@ export function initGame(opts: { debug?: boolean } = {}): void {
 
   function updateBotPaddle(dt: number): void {
     const bot = playerSide === 'left' ? right : left;
-    const target = ball.y - PADDLE_H / 2;
+    const tuning = BOT_TUNING[getDifficulty()];
+
+    // re-roll the aim error each time the ball's horizontal direction flips
+    // (a new leg) rather than every frame, so it reads as imprecise aim
+    // rather than jitter
+    const vxSign = Math.sign(ball.vx);
+    if (vxSign !== 0 && vxSign !== botLastBallVxSign) {
+      botTrackingError = (Math.random() * 2 - 1) * tuning.trackingErrorPx;
+      botLastBallVxSign = vxSign;
+    }
+
+    // perceived target lags the real one — reactionDelayMs is the rough time
+    // for the bot's aim to catch up to a new ball direction
+    const rawTarget = ball.y - PADDLE_H / 2;
+    const lagAlpha =
+      tuning.reactionDelayMs > 0
+        ? clamp(dt / (tuning.reactionDelayMs / 1000), 0, 1)
+        : 1;
+    botPerceivedY += (rawTarget - botPerceivedY) * lagAlpha;
+
+    const target = clamp(botPerceivedY + botTrackingError, 0, H - PADDLE_H);
     const diff = target - bot.y;
-    const maxStep = BOT_MAX_SPEED * dt;
+    const maxStep = tuning.maxSpeed * dt;
     bot.prevY = bot.y;
     if (Math.abs(diff) <= maxStep) {
       bot.y = target;
