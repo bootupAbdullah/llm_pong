@@ -1700,23 +1700,25 @@
     const ball = { x: W / 2, y: H / 2, vx: 0, vy: 0, r: BALL_R };
     let running = true;
     let lastTime = null;
-    let botPerceivedY = H / 2 - PADDLE_H / 2;
-    let botTrackingError = 0;
-    let botLastBallVxSign = 0;
-    let botDriftFraction = 0;
+    const botState = {
+      perceivedY: H / 2 - PADDLE_H / 2,
+      trackingError: 0,
+      lastBallVxSign: 0,
+      driftFraction: 0,
+      debugEff: { maxSpeed: 0, reactionDelayMs: 0, trackingErrorPx: 0 }
+    };
     function updateBotDrift() {
       const { currentWin, currentLoss } = getSnapshot().streaks;
       const net = currentWin - currentLoss;
-      botDriftFraction = clamp(net / BOT_DRIFT_STREAK_SATURATION, -1, 1) * BOT_DRIFT_MAX_FRACTION;
+      botState.driftFraction = clamp(net / BOT_DRIFT_STREAK_SATURATION, -1, 1) * BOT_DRIFT_MAX_FRACTION;
     }
-    let botDebugEff = { maxSpeed: 0, reactionDelayMs: 0, trackingErrorPx: 0 };
     function getBotDebugInfo() {
       return {
         difficulty: getDifficulty(),
-        driftFraction: botDriftFraction,
-        effMaxSpeed: botDebugEff.maxSpeed,
-        effReactionDelayMs: botDebugEff.reactionDelayMs,
-        effTrackingErrorPx: botDebugEff.trackingErrorPx
+        driftFraction: botState.driftFraction,
+        effMaxSpeed: botState.debugEff.maxSpeed,
+        effReactionDelayMs: botState.debugEff.reactionDelayMs,
+        effTrackingErrorPx: botState.debugEff.trackingErrorPx
       };
     }
     configure({
@@ -1744,10 +1746,10 @@
       left.y = right.y = H / 2 - PADDLE_H / 2;
       left.prevY = left.y;
       right.prevY = right.y;
-      botPerceivedY = H / 2 - PADDLE_H / 2;
-      botTrackingError = 0;
-      botLastBallVxSign = 0;
-      botDriftFraction = 0;
+      botState.perceivedY = H / 2 - PADDLE_H / 2;
+      botState.trackingError = 0;
+      botState.lastBallVxSign = 0;
+      botState.driftFraction = 0;
       updateScoreLabels();
       statusLine.textContent = "";
       gameOverOverlay.classList.remove("visible");
@@ -1929,23 +1931,27 @@
     function updateBotPaddle(dt) {
       const bot = playerSide === "left" ? right : left;
       const tuning = BOT_TUNING[getDifficulty()];
-      const effMaxSpeed = tuning.maxSpeed * (1 + botDriftFraction);
-      const effReactionDelayMs = tuning.reactionDelayMs * (1 - botDriftFraction);
-      const effTrackingErrorPx = tuning.trackingErrorPx * (1 - botDriftFraction);
-      botDebugEff = {
+      const effMaxSpeed = tuning.maxSpeed * (1 + botState.driftFraction);
+      const effReactionDelayMs = tuning.reactionDelayMs * (1 - botState.driftFraction);
+      const effTrackingErrorPx = tuning.trackingErrorPx * (1 - botState.driftFraction);
+      botState.debugEff = {
         maxSpeed: effMaxSpeed,
         reactionDelayMs: effReactionDelayMs,
         trackingErrorPx: effTrackingErrorPx
       };
       const vxSign = Math.sign(ball.vx);
-      if (vxSign !== 0 && vxSign !== botLastBallVxSign) {
-        botTrackingError = (Math.random() * 2 - 1) * effTrackingErrorPx;
-        botLastBallVxSign = vxSign;
+      if (vxSign !== 0 && vxSign !== botState.lastBallVxSign) {
+        botState.trackingError = (Math.random() * 2 - 1) * effTrackingErrorPx;
+        botState.lastBallVxSign = vxSign;
       }
       const rawTarget = ball.y - PADDLE_H / 2;
       const lagAlpha = effReactionDelayMs > 0 ? clamp(dt / (effReactionDelayMs / 1e3), 0, 1) : 1;
-      botPerceivedY += (rawTarget - botPerceivedY) * lagAlpha;
-      const target = clamp(botPerceivedY + botTrackingError, 0, H - PADDLE_H);
+      botState.perceivedY += (rawTarget - botState.perceivedY) * lagAlpha;
+      const target = clamp(
+        botState.perceivedY + botState.trackingError,
+        0,
+        H - PADDLE_H
+      );
       const diff = target - bot.y;
       const maxStep = effMaxSpeed * dt;
       bot.prevY = bot.y;
