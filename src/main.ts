@@ -12,12 +12,12 @@ const debug = window.location.hash.toLowerCase().includes('debug');
 
 initSettings();
 initDifficultyMenu();
-initGame({ debug });
+const gameApi = initGame({ debug });
 
 // Metrics recording is always on (later phases consume it live). The #debug
 // panel and the canvas prediction overlay are opt-in via the URL fragment.
 if (debug) {
-  initDebugPanel();
+  initDebugPanel(gameApi.getBotDebugInfo);
 }
 
 // Dev-only console access to the raw recording — no player-facing export.

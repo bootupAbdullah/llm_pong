@@ -9,7 +9,7 @@ import { getKeySpeed, getKeySpeedNotch, setKeySpeedNotch } from './prefs';
 import { getDifficulty } from './difficulty';
 import * as recorder from './metrics/recorder';
 import { drawPrediction } from './metrics/overlay';
-import type { Ball, ControlMode, Paddle, Score, Side } from './types';
+import type { BotDebugInfo, Ball, ControlMode, Paddle, Score, Side } from './types';
 import {
   BALL_BASE_SPEED,
   BALL_MAX_SPEED,
@@ -25,7 +25,11 @@ import {
   WIN_SCORE,
 } from './constants';
 
-export function initGame(opts: { debug?: boolean } = {}): void {
+export interface GameApi {
+  getBotDebugInfo: () => BotDebugInfo;
+}
+
+export function initGame(opts: { debug?: boolean } = {}): GameApi {
   const debug = opts.debug ?? false;
   const canvas = byId<HTMLCanvasElement>('pongCanvas');
   const gameWindow = byId<HTMLDivElement>('gameWindow');
@@ -90,6 +94,20 @@ export function initGame(opts: { debug?: boolean } = {}): void {
     const net = currentWin - currentLoss;
     botDriftFraction =
       clamp(net / BOT_DRIFT_STREAK_SATURATION, -1, 1) * BOT_DRIFT_MAX_FRACTION;
+  }
+
+  // Last computed effective bot parameters, cached for the #debug panel
+  // (Phase 3 Stage 4) — updateBotPaddle() writes this every frame.
+  let botDebugEff = { maxSpeed: 0, reactionDelayMs: 0, trackingErrorPx: 0 };
+
+  function getBotDebugInfo(): BotDebugInfo {
+    return {
+      difficulty: getDifficulty(),
+      driftFraction: botDriftFraction,
+      effMaxSpeed: botDebugEff.maxSpeed,
+      effReactionDelayMs: botDebugEff.reactionDelayMs,
+      effTrackingErrorPx: botDebugEff.trackingErrorPx,
+    };
   }
 
   // fixed playfield geometry, for the metrics predictor — the x planes where the
@@ -362,6 +380,11 @@ export function initGame(opts: { debug?: boolean } = {}): void {
     const effMaxSpeed = tuning.maxSpeed * (1 + botDriftFraction);
     const effReactionDelayMs = tuning.reactionDelayMs * (1 - botDriftFraction);
     const effTrackingErrorPx = tuning.trackingErrorPx * (1 - botDriftFraction);
+    botDebugEff = {
+      maxSpeed: effMaxSpeed,
+      reactionDelayMs: effReactionDelayMs,
+      trackingErrorPx: effTrackingErrorPx,
+    };
 
     // re-roll the aim error each time the ball's horizontal direction flips
     // (a new leg) rather than every frame, so it reads as imprecise aim
@@ -528,4 +551,6 @@ export function initGame(opts: { debug?: boolean } = {}): void {
   recorder.onGameStart(playerSide);
   serveBall(Math.random() < 0.5 ? 'left' : 'right');
   requestAnimationFrame(loop);
+
+  return { getBotDebugInfo };
 }

@@ -28,3 +28,13 @@ export interface Score {
   left: number;
   right: number;
 }
+
+/** Live bot state for the #debug panel (Phase 3 Stage 4) — the selected
+ * tier plus its currently-effective parameters after drift is applied. */
+export interface BotDebugInfo {
+  difficulty: Difficulty;
+  driftFraction: number;
+  effMaxSpeed: number;
+  effReactionDelayMs: number;
+  effTrackingErrorPx: number;
+}

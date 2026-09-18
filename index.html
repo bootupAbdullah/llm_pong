@@ -1709,6 +1709,16 @@
       const net = currentWin - currentLoss;
       botDriftFraction = clamp(net / BOT_DRIFT_STREAK_SATURATION, -1, 1) * BOT_DRIFT_MAX_FRACTION;
     }
+    let botDebugEff = { maxSpeed: 0, reactionDelayMs: 0, trackingErrorPx: 0 };
+    function getBotDebugInfo() {
+      return {
+        difficulty: getDifficulty(),
+        driftFraction: botDriftFraction,
+        effMaxSpeed: botDebugEff.maxSpeed,
+        effReactionDelayMs: botDebugEff.reactionDelayMs,
+        effTrackingErrorPx: botDebugEff.trackingErrorPx
+      };
+    }
     configure({
       height: H,
       ballR: BALL_R,
@@ -1922,6 +1932,11 @@
       const effMaxSpeed = tuning.maxSpeed * (1 + botDriftFraction);
       const effReactionDelayMs = tuning.reactionDelayMs * (1 - botDriftFraction);
       const effTrackingErrorPx = tuning.trackingErrorPx * (1 - botDriftFraction);
+      botDebugEff = {
+        maxSpeed: effMaxSpeed,
+        reactionDelayMs: effReactionDelayMs,
+        trackingErrorPx: effTrackingErrorPx
+      };
       const vxSign = Math.sign(ball.vx);
       if (vxSign !== 0 && vxSign !== botLastBallVxSign) {
         botTrackingError = (Math.random() * 2 - 1) * effTrackingErrorPx;
@@ -2049,6 +2064,7 @@
     onGameStart(playerSide);
     serveBall(Math.random() < 0.5 ? "left" : "right");
     requestAnimationFrame(loop);
+    return { getBotDebugInfo };
   }
 
   // src/metrics/debug-panel.ts
@@ -2056,6 +2072,7 @@
   function n(v, d = 0) {
     return Number.isFinite(v) ? v.toFixed(d) : "—";
   }
+  var latestBotInfo = null;
   var SECTIONS = [
     {
       title: "Match",
@@ -2236,6 +2253,37 @@
       ]
     },
     {
+      title: "Bot",
+      help: "Phase 3 adaptive bot: the selected tier, its current in-tier drift from the streak rule above, and the effective parameters that result.",
+      rows: [
+        {
+          label: "tier",
+          help: "Selected difficulty (the gear-icon dropdown, top right).",
+          get: () => latestBotInfo ? latestBotInfo.difficulty : "—"
+        },
+        {
+          label: "drift",
+          help: "Current in-tier adjustment from the win/loss-streak rule. Positive = harder, negative = easier, capped at BOT_DRIFT_MAX_FRACTION.",
+          get: () => latestBotInfo ? `${latestBotInfo.driftFraction >= 0 ? "+" : ""}${n(latestBotInfo.driftFraction * 100, 1)} %` : "—"
+        },
+        {
+          label: "max speed",
+          help: "Effective paddle speed cap after drift.",
+          get: () => latestBotInfo ? `${n(latestBotInfo.effMaxSpeed)} px/s` : "—"
+        },
+        {
+          label: "reaction delay",
+          help: "Effective time for the bot's aim to catch up to a new ball direction.",
+          get: () => latestBotInfo ? `${n(latestBotInfo.effReactionDelayMs)} ms` : "—"
+        },
+        {
+          label: "tracking error",
+          help: "Effective max +/- random aim offset, re-rolled each leg.",
+          get: () => latestBotInfo ? `${n(latestBotInfo.effTrackingErrorPx)} px` : "—"
+        }
+      ]
+    },
+    {
       title: "Movement · this leg",
       help: "The other four movement-pattern metrics (overshoot is in Accuracy above). Resets each leg.",
       rows: [
@@ -2287,7 +2335,7 @@
   opacity:0.5;font-style:italic}
 #pong-debug-panel.show-help .p-help{display:block}
 `;
-  function initDebugPanel() {
+  function initDebugPanel(getBotDebugInfo) {
     if (document.getElementById("pong-debug-panel")) return;
     const style = document.createElement("style");
     style.textContent = STYLE;
@@ -2336,6 +2384,7 @@
     document.body.appendChild(panel);
     function render() {
       const s = getSnapshot();
+      latestBotInfo = getBotDebugInfo();
       for (const { cell, get } of valueCells) cell.textContent = get(s);
     }
     render();
@@ -2346,9 +2395,9 @@
   var debug = window.location.hash.toLowerCase().includes("debug");
   initSettings();
   initDifficultyMenu();
-  initGame({ debug });
+  var gameApi = initGame({ debug });
   if (debug) {
-    initDebugPanel();
+    initDebugPanel(gameApi.getBotDebugInfo);
   }
   globalThis.__pongMetrics = {
     getFrames,
