@@ -38,3 +38,14 @@ export const BOT_TUNING: Record<Difficulty, BotTuning> = {
   medium: { maxSpeed: 340, reactionDelayMs: 140, trackingErrorPx: 22 },
   hard: { maxSpeed: 430, reactionDelayMs: 60, trackingErrorPx: 8 },
 };
+
+// Bot difficulty (Phase 3 Stage 2): bounded in-tier drift. Recomputed once
+// per point from the player's current per-rally win/loss streak (see
+// streaks.ts) — a win streak nudges the bot toward the harder end of its own
+// tier for the next rally, a loss streak toward the easier end. The drift
+// fraction saturates after BOT_DRIFT_STREAK_SATURATION rallies and is capped
+// at BOT_DRIFT_MAX_FRACTION, chosen well inside the smallest gap between two
+// tiers' BOT_TUNING values (e.g. easy vs. medium maxSpeed is a ~31% gap) so a
+// tier can never drift into its neighbour's range.
+export const BOT_DRIFT_STREAK_SATURATION = 3; // rallies won/lost in a row to hit max drift
+export const BOT_DRIFT_MAX_FRACTION = 0.15; // +/-15% of the tier's own values

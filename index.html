@@ -916,6 +916,8 @@
     medium: { maxSpeed: 340, reactionDelayMs: 140, trackingErrorPx: 22 },
     hard: { maxSpeed: 430, reactionDelayMs: 60, trackingErrorPx: 8 }
   };
+  var BOT_DRIFT_STREAK_SATURATION = 3;
+  var BOT_DRIFT_MAX_FRACTION = 0.15;
 
   // src/difficulty.ts
   var STORAGE_KEY = "pongDifficulty";
@@ -1701,6 +1703,12 @@
     let botPerceivedY = H / 2 - PADDLE_H / 2;
     let botTrackingError = 0;
     let botLastBallVxSign = 0;
+    let botDriftFraction = 0;
+    function updateBotDrift() {
+      const { currentWin, currentLoss } = getSnapshot().streaks;
+      const net = currentWin - currentLoss;
+      botDriftFraction = clamp(net / BOT_DRIFT_STREAK_SATURATION, -1, 1) * BOT_DRIFT_MAX_FRACTION;
+    }
     configure({
       height: H,
       ballR: BALL_R,
@@ -1729,6 +1737,7 @@
       botPerceivedY = H / 2 - PADDLE_H / 2;
       botTrackingError = 0;
       botLastBallVxSign = 0;
+      botDriftFraction = 0;
       updateScoreLabels();
       statusLine.textContent = "";
       gameOverOverlay.classList.remove("visible");
@@ -1910,17 +1919,20 @@
     function updateBotPaddle(dt) {
       const bot = playerSide === "left" ? right : left;
       const tuning = BOT_TUNING[getDifficulty()];
+      const effMaxSpeed = tuning.maxSpeed * (1 + botDriftFraction);
+      const effReactionDelayMs = tuning.reactionDelayMs * (1 - botDriftFraction);
+      const effTrackingErrorPx = tuning.trackingErrorPx * (1 - botDriftFraction);
       const vxSign = Math.sign(ball.vx);
       if (vxSign !== 0 && vxSign !== botLastBallVxSign) {
-        botTrackingError = (Math.random() * 2 - 1) * tuning.trackingErrorPx;
+        botTrackingError = (Math.random() * 2 - 1) * effTrackingErrorPx;
         botLastBallVxSign = vxSign;
       }
       const rawTarget = ball.y - PADDLE_H / 2;
-      const lagAlpha = tuning.reactionDelayMs > 0 ? clamp(dt / (tuning.reactionDelayMs / 1e3), 0, 1) : 1;
+      const lagAlpha = effReactionDelayMs > 0 ? clamp(dt / (effReactionDelayMs / 1e3), 0, 1) : 1;
       botPerceivedY += (rawTarget - botPerceivedY) * lagAlpha;
       const target = clamp(botPerceivedY + botTrackingError, 0, H - PADDLE_H);
       const diff = target - bot.y;
-      const maxStep = tuning.maxSpeed * dt;
+      const maxStep = effMaxSpeed * dt;
       bot.prevY = bot.y;
       if (Math.abs(diff) <= maxStep) {
         bot.y = target;
@@ -1979,6 +1991,7 @@
       score[side] += 1;
       updateScoreLabels();
       onPoint(side, playerSide);
+      updateBotDrift();
       if (score[side] >= WIN_SCORE) {
         endGame(side);
       } else {
