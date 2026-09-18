@@ -126,9 +126,9 @@
     border-radius: 3px;
   }
 
-  .settings-trigger {
+  .settings-trigger,
+  .difficulty-trigger {
     position: fixed;
-    top: 24px;
     right: 32px;
     display: flex;
     align-items: center;
@@ -139,20 +139,37 @@
     background: #fff;
     color: var(--ink);
     cursor: pointer;
+    /* above either panel below, so the two stacked trigger buttons stay
+       clickable even while the other's panel is open */
+    z-index: 2;
   }
 
-  .settings-trigger:hover {
+  .settings-trigger {
+    top: 24px;
+  }
+
+  .difficulty-trigger {
+    /* directly under the settings/theme button, same 6px gap the panel
+       below uses */
+    top: 64px;
+  }
+
+  .settings-trigger:hover,
+  .difficulty-trigger:hover {
     background: rgba(38, 65, 92, 0.08);
   }
 
-  .settings-trigger svg {
+  .settings-trigger svg,
+  .difficulty-trigger svg {
     width: 18px;
     height: 18px;
   }
 
-  .settings-panel {
+  .settings-panel,
+  .difficulty-panel {
     position: fixed;
-    top: 64px;
+    /* both panels open from the same spot, below the stacked trigger pair */
+    top: 104px;
     right: 32px;
     display: none;
     flex-direction: column;
@@ -163,7 +180,8 @@
     min-width: 130px;
   }
 
-  .settings-panel.open {
+  .settings-panel.open,
+  .difficulty-panel.open {
     display: flex;
   }
 
@@ -173,6 +191,25 @@
     letter-spacing: 0.06em;
     opacity: 0.6;
     margin-bottom: 2px;
+  }
+
+  .difficulty-option {
+    padding: 5px 6px;
+    border: 1px solid transparent;
+    background: transparent;
+    font-family: inherit;
+    font-size: 0.74rem;
+    color: var(--ink);
+    cursor: pointer;
+    text-align: left;
+  }
+
+  .difficulty-option:hover {
+    background: rgba(38, 65, 92, 0.06);
+  }
+
+  .difficulty-option.active {
+    border-color: var(--window-border);
   }
 
   .theme-option {
@@ -647,6 +684,29 @@
     <button class="text-size-option" data-size="large" type="button" aria-label="Large text size">A</button>
     <button class="text-size-option" data-size="xlarge" type="button" aria-label="Extra large text size">A</button>
   </div>
+</div>
+
+<button class="difficulty-trigger" id="difficultyTrigger" type="button" aria-label="Difficulty">
+  <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+    <circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.6"/>
+    <circle cx="12" cy="12" r="7" stroke="currentColor" stroke-width="1.6"/>
+    <g stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+      <line x1="12" y1="2" x2="12" y2="4.2"/>
+      <line x1="12" y1="19.8" x2="12" y2="22"/>
+      <line x1="2" y1="12" x2="4.2" y2="12"/>
+      <line x1="19.8" y1="12" x2="22" y2="12"/>
+      <line x1="4.9" y1="4.9" x2="6.4" y2="6.4"/>
+      <line x1="17.6" y1="17.6" x2="19.1" y2="19.1"/>
+      <line x1="19.1" y1="4.9" x2="17.6" y2="6.4"/>
+      <line x1="6.4" y1="17.6" x2="4.9" y2="19.1"/>
+    </g>
+  </svg>
+</button>
+<div class="difficulty-panel" id="difficultyPanel">
+  <div class="settings-panel-label">Difficulty</div>
+  <button class="difficulty-option" data-difficulty="easy" type="button">Easy</button>
+  <button class="difficulty-option active" data-difficulty="medium" type="button">Medium</button>
+  <button class="difficulty-option" data-difficulty="hard" type="button">Hard</button>
 </div>
 
 <div class="social-links">

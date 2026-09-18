@@ -11,6 +11,7 @@
 
 import { getSnapshot } from './recorder';
 import type { RecorderSnapshot } from './types';
+import type { BotDebugInfo } from '../types';
 import { formatRule } from './predictor';
 
 const REFRESH_MS = 140;
@@ -30,6 +31,11 @@ interface SectionSpec {
 function n(v: number, d = 0): string {
   return Number.isFinite(v) ? v.toFixed(d) : '—';
 }
+
+// Bot info doesn't come from the recorder (it's game/bot state, not player
+// metrics), so it's cached here each tick instead of flowing through
+// RecorderSnapshot like every other row. See initDebugPanel()'s render().
+let latestBotInfo: BotDebugInfo | null = null;
 
 const SECTIONS: SectionSpec[] = [
   {
@@ -266,6 +272,43 @@ const SECTIONS: SectionSpec[] = [
     ],
   },
   {
+    title: 'Bot',
+    help: 'Phase 3 adaptive bot: the selected tier, its current in-tier drift from the streak rule above, and the effective parameters that result.',
+    rows: [
+      {
+        label: 'tier',
+        help: 'Selected difficulty (the gear-icon dropdown, top right).',
+        get: () => (latestBotInfo ? latestBotInfo.difficulty : '—'),
+      },
+      {
+        label: 'drift',
+        help: 'Current in-tier adjustment from the win/loss-streak rule. Positive = harder, negative = easier, capped at BOT_DRIFT_MAX_FRACTION.',
+        get: () =>
+          latestBotInfo
+            ? `${latestBotInfo.driftFraction >= 0 ? '+' : ''}${n(latestBotInfo.driftFraction * 100, 1)} %`
+            : '—',
+      },
+      {
+        label: 'max speed',
+        help: 'Effective paddle speed cap after drift.',
+        get: () =>
+          latestBotInfo ? `${n(latestBotInfo.effMaxSpeed)} px/s` : '—',
+      },
+      {
+        label: 'reaction delay',
+        help: "Effective time for the bot's aim to catch up to a new ball direction.",
+        get: () =>
+          latestBotInfo ? `${n(latestBotInfo.effReactionDelayMs)} ms` : '—',
+      },
+      {
+        label: 'tracking error',
+        help: 'Effective max +/- random aim offset, re-rolled each leg.',
+        get: () =>
+          latestBotInfo ? `${n(latestBotInfo.effTrackingErrorPx)} px` : '—',
+      },
+    ],
+  },
+  {
     title: 'Movement · this leg',
     help: 'The other four movement-pattern metrics (overshoot is in Accuracy above). Resets each leg.',
     rows: [
@@ -332,7 +375,7 @@ const STYLE = `
 #pong-debug-panel.show-help .p-help{display:block}
 `;
 
-export function initDebugPanel(): void {
+export function initDebugPanel(getBotDebugInfo: () => BotDebugInfo): void {
   if (document.getElementById('pong-debug-panel')) return;
 
   const style = document.createElement('style');
@@ -392,6 +435,7 @@ export function initDebugPanel(): void {
 
   function render(): void {
     const s = getSnapshot();
+    latestBotInfo = getBotDebugInfo();
     for (const { cell, get } of valueCells) cell.textContent = get(s);
   }
 

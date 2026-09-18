@@ -6,15 +6,18 @@
 
 import { byId } from './dom';
 import { getKeySpeed, getKeySpeedNotch, setKeySpeedNotch } from './prefs';
+import { getDifficulty } from './difficulty';
 import * as recorder from './metrics/recorder';
 import { drawPrediction } from './metrics/overlay';
-import type { Ball, ControlMode, Paddle, Score, Side } from './types';
+import type { BotDebugInfo, Ball, ControlMode, Paddle, Score, Side } from './types';
 import {
   BALL_BASE_SPEED,
   BALL_MAX_SPEED,
   BALL_R,
   BALL_SPEED_STEP,
-  BOT_MAX_SPEED,
+  BOT_DRIFT_MAX_FRACTION,
+  BOT_DRIFT_STREAK_SATURATION,
+  BOT_TUNING,
   KEY_SPEED_NOTCHES,
   PADDLE_H,
   PADDLE_MARGIN,
@@ -22,7 +25,11 @@ import {
   WIN_SCORE,
 } from './constants';
 
-export function initGame(opts: { debug?: boolean } = {}): void {
+export interface GameApi {
+  getBotDebugInfo: () => BotDebugInfo;
+}
+
+export function initGame(opts: { debug?: boolean } = {}): GameApi {
   const debug = opts.debug ?? false;
   const canvas = byId<HTMLCanvasElement>('pongCanvas');
   const gameWindow = byId<HTMLDivElement>('gameWindow');
@@ -69,6 +76,42 @@ export function initGame(opts: { debug?: boolean } = {}): void {
   let running = true;
   let lastTime: number | null = null;
 
+  // Bot state (Phase 3). Grouped in one object rather than loose variables so
+  // resetGame() and getBotDebugInfo() can't drift out of sync by missing one.
+  //   perceivedY / trackingError / lastBallVxSign — Stage 1 imperfection model.
+  //     perceivedY lags the ball's real position (reactionDelayMs) instead of
+  //     tracking it instantly; trackingError is a random aim offset re-rolled
+  //     each time the ball's horizontal direction flips (a new leg).
+  //   driftFraction — Stage 2 bounded in-tier drift, recomputed once per
+  //     point from the player's current win/loss streak. See BOT_DRIFT_* in
+  //     constants.ts for the rule.
+  //   debugEff — last computed effective parameters, cached for the #debug
+  //     panel (Stage 4). Written every frame by updateBotPaddle().
+  const botState = {
+    perceivedY: H / 2 - PADDLE_H / 2,
+    trackingError: 0,
+    lastBallVxSign: 0,
+    driftFraction: 0,
+    debugEff: { maxSpeed: 0, reactionDelayMs: 0, trackingErrorPx: 0 },
+  };
+
+  function updateBotDrift(): void {
+    const { currentWin, currentLoss } = recorder.getSnapshot().streaks;
+    const net = currentWin - currentLoss;
+    botState.driftFraction =
+      clamp(net / BOT_DRIFT_STREAK_SATURATION, -1, 1) * BOT_DRIFT_MAX_FRACTION;
+  }
+
+  function getBotDebugInfo(): BotDebugInfo {
+    return {
+      difficulty: getDifficulty(),
+      driftFraction: botState.driftFraction,
+      effMaxSpeed: botState.debugEff.maxSpeed,
+      effReactionDelayMs: botState.debugEff.reactionDelayMs,
+      effTrackingErrorPx: botState.debugEff.trackingErrorPx,
+    };
+  }
+
   // fixed playfield geometry, for the metrics predictor — the x planes where the
   // ball centre sits when it contacts each paddle (mirror of checkPaddleCollision)
   recorder.configure({
@@ -99,6 +142,10 @@ export function initGame(opts: { debug?: boolean } = {}): void {
     left.y = right.y = H / 2 - PADDLE_H / 2;
     left.prevY = left.y;
     right.prevY = right.y;
+    botState.perceivedY = H / 2 - PADDLE_H / 2;
+    botState.trackingError = 0;
+    botState.lastBallVxSign = 0;
+    botState.driftFraction = 0;
     updateScoreLabels();
     statusLine.textContent = '';
     gameOverOverlay.classList.remove('visible');
@@ -328,9 +375,46 @@ export function initGame(opts: { debug?: boolean } = {}): void {
 
   function updateBotPaddle(dt: number): void {
     const bot = playerSide === 'left' ? right : left;
-    const target = ball.y - PADDLE_H / 2;
+    const tuning = BOT_TUNING[getDifficulty()];
+    // winning streak -> harder (faster, less delay, less error); losing
+    // streak -> easier. Bounded well inside the tier's own band, see
+    // BOT_DRIFT_* in constants.ts.
+    const effMaxSpeed = tuning.maxSpeed * (1 + botState.driftFraction);
+    const effReactionDelayMs =
+      tuning.reactionDelayMs * (1 - botState.driftFraction);
+    const effTrackingErrorPx =
+      tuning.trackingErrorPx * (1 - botState.driftFraction);
+    botState.debugEff = {
+      maxSpeed: effMaxSpeed,
+      reactionDelayMs: effReactionDelayMs,
+      trackingErrorPx: effTrackingErrorPx,
+    };
+
+    // re-roll the aim error each time the ball's horizontal direction flips
+    // (a new leg) rather than every frame, so it reads as imprecise aim
+    // rather than jitter
+    const vxSign = Math.sign(ball.vx);
+    if (vxSign !== 0 && vxSign !== botState.lastBallVxSign) {
+      botState.trackingError = (Math.random() * 2 - 1) * effTrackingErrorPx;
+      botState.lastBallVxSign = vxSign;
+    }
+
+    // perceived target lags the real one — reactionDelayMs is the rough time
+    // for the bot's aim to catch up to a new ball direction
+    const rawTarget = ball.y - PADDLE_H / 2;
+    const lagAlpha =
+      effReactionDelayMs > 0
+        ? clamp(dt / (effReactionDelayMs / 1000), 0, 1)
+        : 1;
+    botState.perceivedY += (rawTarget - botState.perceivedY) * lagAlpha;
+
+    const target = clamp(
+      botState.perceivedY + botState.trackingError,
+      0,
+      H - PADDLE_H,
+    );
     const diff = target - bot.y;
-    const maxStep = BOT_MAX_SPEED * dt;
+    const maxStep = effMaxSpeed * dt;
     bot.prevY = bot.y;
     if (Math.abs(diff) <= maxStep) {
       bot.y = target;
@@ -407,6 +491,7 @@ export function initGame(opts: { debug?: boolean } = {}): void {
     score[side] += 1;
     updateScoreLabels();
     recorder.onPoint(side, playerSide);
+    updateBotDrift();
     if (score[side] >= WIN_SCORE) {
       endGame(side);
     } else {
@@ -474,4 +559,6 @@ export function initGame(opts: { debug?: boolean } = {}): void {
   recorder.onGameStart(playerSide);
   serveBall(Math.random() < 0.5 ? 'left' : 'right');
   requestAnimationFrame(loop);
+
+  return { getBotDebugInfo };
 }
