@@ -1681,6 +1681,16 @@
   function getLlmNudge() {
     return state.lastNudge;
   }
+  function getLlmDebugInfo() {
+    return {
+      status: state.status,
+      ralliesSinceLastCall: state.ralliesSinceLastCall,
+      lastLatencyMs: state.lastLatencyMs,
+      lastError: state.lastError,
+      lastCommentary: state.lastCommentary,
+      lastNudge: state.lastNudge
+    };
+  }
   function buildRalliesPayload() {
     const rallies = getCurrentGame()?.rallies ?? [];
     return rallies.slice(-LLM_BATCH_RALLIES).map((rally) => ({
@@ -2243,6 +2253,7 @@
     return Number.isFinite(v) ? v.toFixed(d) : "—";
   }
   var latestBotInfo = null;
+  var latestLlmInfo = null;
   var SECTIONS = [
     {
       title: "Match",
@@ -2454,6 +2465,42 @@
       ]
     },
     {
+      title: "LLM",
+      help: "Phase 4: batched requests to a local Ollama model for commentary + a bounded bot-play nudge. The nudge is folded into the effective values shown in the Bot section above, not tracked separately there.",
+      rows: [
+        {
+          label: "status",
+          help: "idle = no request yet. pending = request in flight. ok = last request succeeded. error = last request failed (network, timeout, or bad response shape) -- prior commentary/nudge stay in effect either way.",
+          get: () => latestLlmInfo ? latestLlmInfo.status : "—"
+        },
+        {
+          label: "batch",
+          help: `Rallies accumulated toward the next request -- fires every ${LLM_BATCH_RALLIES}.`,
+          get: () => latestLlmInfo ? `${latestLlmInfo.ralliesSinceLastCall} / ${LLM_BATCH_RALLIES}` : "—"
+        },
+        {
+          label: "last latency",
+          help: "Round-trip time of the most recent request.",
+          get: () => latestLlmInfo && latestLlmInfo.lastLatencyMs !== null ? `${latestLlmInfo.lastLatencyMs} ms` : "—"
+        },
+        {
+          label: "last error",
+          help: "Why the most recent request failed, if it did.",
+          get: () => latestLlmInfo?.lastError ?? "—"
+        },
+        {
+          label: "nudge",
+          help: "The LLM's requested bot-play adjustment, each axis -1..1 (speed / reaction / tracking) -- combined with streak drift in the Bot section above.",
+          get: () => latestLlmInfo ? `${n(latestLlmInfo.lastNudge.speed, 2)} / ${n(latestLlmInfo.lastNudge.reaction, 2)} / ${n(latestLlmInfo.lastNudge.tracking, 2)}` : "—"
+        },
+        {
+          label: "commentary",
+          help: "The latest commentary string shown in the player-facing panel under the game.",
+          get: () => latestLlmInfo?.lastCommentary ?? "—"
+        }
+      ]
+    },
+    {
       title: "Movement · this leg",
       help: "The other four movement-pattern metrics (overshoot is in Accuracy above). Resets each leg.",
       rows: [
@@ -2555,6 +2602,7 @@
     function render() {
       const s = getSnapshot();
       latestBotInfo = getBotDebugInfo();
+      latestLlmInfo = getLlmDebugInfo();
       for (const { cell, get } of valueCells) cell.textContent = get(s);
     }
     render();

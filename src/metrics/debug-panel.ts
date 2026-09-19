@@ -13,6 +13,8 @@ import { getSnapshot } from './recorder';
 import type { RecorderSnapshot } from './types';
 import type { BotDebugInfo } from '../types';
 import { formatRule } from './predictor';
+import { getLlmDebugInfo, type LlmDebugInfo } from '../llm';
+import { LLM_BATCH_RALLIES } from '../constants';
 
 const REFRESH_MS = 140;
 
@@ -36,6 +38,10 @@ function n(v: number, d = 0): string {
 // metrics), so it's cached here each tick instead of flowing through
 // RecorderSnapshot like every other row. See initDebugPanel()'s render().
 let latestBotInfo: BotDebugInfo | null = null;
+
+// LLM info (Phase 4) is a module-singleton in llm.ts, not routed through
+// GameApi like BotDebugInfo -- imported and cached the same way regardless.
+let latestLlmInfo: LlmDebugInfo | null = null;
 
 const SECTIONS: SectionSpec[] = [
   {
@@ -309,6 +315,51 @@ const SECTIONS: SectionSpec[] = [
     ],
   },
   {
+    title: 'LLM',
+    help: 'Phase 4: batched requests to a local Ollama model for commentary + a bounded bot-play nudge. The nudge is folded into the effective values shown in the Bot section above, not tracked separately there.',
+    rows: [
+      {
+        label: 'status',
+        help: 'idle = no request yet. pending = request in flight. ok = last request succeeded. error = last request failed (network, timeout, or bad response shape) -- prior commentary/nudge stay in effect either way.',
+        get: () => (latestLlmInfo ? latestLlmInfo.status : '—'),
+      },
+      {
+        label: 'batch',
+        help: `Rallies accumulated toward the next request -- fires every ${LLM_BATCH_RALLIES}.`,
+        get: () =>
+          latestLlmInfo
+            ? `${latestLlmInfo.ralliesSinceLastCall} / ${LLM_BATCH_RALLIES}`
+            : '—',
+      },
+      {
+        label: 'last latency',
+        help: 'Round-trip time of the most recent request.',
+        get: () =>
+          latestLlmInfo && latestLlmInfo.lastLatencyMs !== null
+            ? `${latestLlmInfo.lastLatencyMs} ms`
+            : '—',
+      },
+      {
+        label: 'last error',
+        help: 'Why the most recent request failed, if it did.',
+        get: () => latestLlmInfo?.lastError ?? '—',
+      },
+      {
+        label: 'nudge',
+        help: "The LLM's requested bot-play adjustment, each axis -1..1 (speed / reaction / tracking) -- combined with streak drift in the Bot section above.",
+        get: () =>
+          latestLlmInfo
+            ? `${n(latestLlmInfo.lastNudge.speed, 2)} / ${n(latestLlmInfo.lastNudge.reaction, 2)} / ${n(latestLlmInfo.lastNudge.tracking, 2)}`
+            : '—',
+      },
+      {
+        label: 'commentary',
+        help: 'The latest commentary string shown in the player-facing panel under the game.',
+        get: () => latestLlmInfo?.lastCommentary ?? '—',
+      },
+    ],
+  },
+  {
     title: 'Movement · this leg',
     help: 'The other four movement-pattern metrics (overshoot is in Accuracy above). Resets each leg.',
     rows: [
@@ -436,6 +487,7 @@ export function initDebugPanel(getBotDebugInfo: () => BotDebugInfo): void {
   function render(): void {
     const s = getSnapshot();
     latestBotInfo = getBotDebugInfo();
+    latestLlmInfo = getLlmDebugInfo();
     for (const { cell, get } of valueCells) cell.textContent = get(s);
   }
 
