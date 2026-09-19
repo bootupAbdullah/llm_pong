@@ -380,11 +380,31 @@ export function initGame(opts: { debug?: boolean } = {}): GameApi {
     // winning streak -> harder (faster, less delay, less error); losing
     // streak -> easier. Bounded well inside the tier's own band, see
     // BOT_DRIFT_* in constants.ts.
-    const effMaxSpeed = tuning.maxSpeed * (1 + botState.driftFraction);
-    const effReactionDelayMs =
-      tuning.reactionDelayMs * (1 - botState.driftFraction);
-    const effTrackingErrorPx =
-      tuning.trackingErrorPx * (1 - botState.driftFraction);
+    //
+    // Phase 4 Stage 3: the LLM's per-axis nudge (-1..1) shares this same
+    // BOT_DRIFT_MAX_FRACTION envelope with the streak drift rather than
+    // getting its own budget -- clamped together, per axis, so the LLM can
+    // no more push a tier past its own bounds than a streak can. See
+    // phase-4-handoff.md's "Bot-feedback seam".
+    const nudge = llm.getLlmNudge();
+    const speedFraction = clamp(
+      botState.driftFraction + nudge.speed * BOT_DRIFT_MAX_FRACTION,
+      -BOT_DRIFT_MAX_FRACTION,
+      BOT_DRIFT_MAX_FRACTION,
+    );
+    const reactionFraction = clamp(
+      botState.driftFraction + nudge.reaction * BOT_DRIFT_MAX_FRACTION,
+      -BOT_DRIFT_MAX_FRACTION,
+      BOT_DRIFT_MAX_FRACTION,
+    );
+    const trackingFraction = clamp(
+      botState.driftFraction + nudge.tracking * BOT_DRIFT_MAX_FRACTION,
+      -BOT_DRIFT_MAX_FRACTION,
+      BOT_DRIFT_MAX_FRACTION,
+    );
+    const effMaxSpeed = tuning.maxSpeed * (1 + speedFraction);
+    const effReactionDelayMs = tuning.reactionDelayMs * (1 - reactionFraction);
+    const effTrackingErrorPx = tuning.trackingErrorPx * (1 - trackingFraction);
     botState.debugEff = {
       maxSpeed: effMaxSpeed,
       reactionDelayMs: effReactionDelayMs,

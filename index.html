@@ -1678,6 +1678,9 @@
     state.ralliesSinceLastCall = 0;
     void requestUpdate(botDebugInfo);
   }
+  function getLlmNudge() {
+    return state.lastNudge;
+  }
   function buildRalliesPayload() {
     const rallies = getCurrentGame()?.rallies ?? [];
     return rallies.slice(-LLM_BATCH_RALLIES).map((rally) => ({
@@ -2075,9 +2078,25 @@
     function updateBotPaddle(dt) {
       const bot = playerSide === "left" ? right : left;
       const tuning = BOT_TUNING[getDifficulty()];
-      const effMaxSpeed = tuning.maxSpeed * (1 + botState.driftFraction);
-      const effReactionDelayMs = tuning.reactionDelayMs * (1 - botState.driftFraction);
-      const effTrackingErrorPx = tuning.trackingErrorPx * (1 - botState.driftFraction);
+      const nudge = getLlmNudge();
+      const speedFraction = clamp2(
+        botState.driftFraction + nudge.speed * BOT_DRIFT_MAX_FRACTION,
+        -BOT_DRIFT_MAX_FRACTION,
+        BOT_DRIFT_MAX_FRACTION
+      );
+      const reactionFraction = clamp2(
+        botState.driftFraction + nudge.reaction * BOT_DRIFT_MAX_FRACTION,
+        -BOT_DRIFT_MAX_FRACTION,
+        BOT_DRIFT_MAX_FRACTION
+      );
+      const trackingFraction = clamp2(
+        botState.driftFraction + nudge.tracking * BOT_DRIFT_MAX_FRACTION,
+        -BOT_DRIFT_MAX_FRACTION,
+        BOT_DRIFT_MAX_FRACTION
+      );
+      const effMaxSpeed = tuning.maxSpeed * (1 + speedFraction);
+      const effReactionDelayMs = tuning.reactionDelayMs * (1 - reactionFraction);
+      const effTrackingErrorPx = tuning.trackingErrorPx * (1 - trackingFraction);
       botState.debugEff = {
         maxSpeed: effMaxSpeed,
         reactionDelayMs: effReactionDelayMs,
