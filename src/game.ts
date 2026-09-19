@@ -8,6 +8,7 @@ import { byId } from './dom';
 import { getKeySpeed, getKeySpeedNotch, setKeySpeedNotch } from './prefs';
 import { getDifficulty } from './difficulty';
 import * as recorder from './metrics/recorder';
+import * as llm from './llm';
 import { drawPrediction } from './metrics/overlay';
 import type { BotDebugInfo, Ball, ControlMode, Paddle, Score, Side } from './types';
 import {
@@ -492,6 +493,7 @@ export function initGame(opts: { debug?: boolean } = {}): GameApi {
     updateScoreLabels();
     recorder.onPoint(side, playerSide);
     updateBotDrift();
+    llm.onRallyComplete(getBotDebugInfo());
     if (score[side] >= WIN_SCORE) {
       endGame(side);
     } else {

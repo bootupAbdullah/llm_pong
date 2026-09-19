@@ -918,6 +918,10 @@
   };
   var BOT_DRIFT_STREAK_SATURATION = 3;
   var BOT_DRIFT_MAX_FRACTION = 0.15;
+  var OLLAMA_ENDPOINT = "http://akd-server1:11434";
+  var OLLAMA_MODEL = "qwen2.5:3b";
+  var LLM_BATCH_RALLIES = 3;
+  var LLM_REQUEST_TIMEOUT_MS = 8e3;
 
   // src/difficulty.ts
   var STORAGE_KEY = "pongDifficulty";
@@ -1629,6 +1633,121 @@
     };
   }
 
+  // src/llm.ts
+  var ZERO_NUDGE = { speed: 0, reaction: 0, tracking: 0 };
+  var state = {
+    ralliesSinceLastCall: 0,
+    inFlight: false,
+    status: "idle",
+    lastLatencyMs: null,
+    lastError: null,
+    lastCommentary: null,
+    lastNudge: ZERO_NUDGE
+  };
+  function clamp(v, min, max) {
+    return Math.max(min, Math.min(max, v));
+  }
+  function onRallyComplete(botDebugInfo) {
+    state.ralliesSinceLastCall += 1;
+    if (state.ralliesSinceLastCall < LLM_BATCH_RALLIES) return;
+    if (state.inFlight) return;
+    state.ralliesSinceLastCall = 0;
+    void requestUpdate(botDebugInfo);
+  }
+  function buildRalliesPayload() {
+    const rallies = getCurrentGame()?.rallies ?? [];
+    return rallies.slice(-LLM_BATCH_RALLIES).map((rally) => ({
+      wonByPlayer: rally.wonByPlayer,
+      legs: rally.legs.filter((leg) => leg.towardPlayer).map((leg) => ({
+        reactionMs: leg.reaction?.derivedMs ?? null,
+        trackingErrorPx: leg.accuracy?.meanTrackingErrorPx ?? null,
+        overshootPx: leg.accuracy?.overshootPx ?? null,
+        contactOffsetNorm: leg.accuracy?.contactOffsetNorm ?? null
+      }))
+    }));
+  }
+  function buildPrompt(botDebugInfo) {
+    const snapshot = getSnapshot();
+    const payload = {
+      score: snapshot.score,
+      difficulty: botDebugInfo.difficulty,
+      currentBotTuning: {
+        maxSpeed: Math.round(botDebugInfo.effMaxSpeed),
+        reactionDelayMs: Math.round(botDebugInfo.effReactionDelayMs),
+        trackingErrorPx: Math.round(botDebugInfo.effTrackingErrorPx)
+      },
+      streaks: snapshot.streaks,
+      recentRallies: buildRalliesPayload()
+    };
+    return [
+      "You are a live, terse commentator for a game of Pong between a human player and a bot opponent.",
+      "You are given recent rally data as JSON. Reply with ONLY a JSON object of exactly this shape, no other text, no markdown fences:",
+      '{"commentary": string, "botNudge": {"speed": number, "reaction": number, "tracking": number}}',
+      '"commentary" is one short sentence (<=25 words) reacting to how the player is doing right now.',
+      `"botNudge" is a small adjustment to the bot's difficulty within its current tier, each axis from -1 (much easier) to 1 (much tougher). Use small values (-0.3 to 0.3) unless play has been extremely one-sided.`,
+      "",
+      "Data:",
+      JSON.stringify(payload)
+    ].join("\n");
+  }
+  function isLlmBotNudge(v) {
+    if (typeof v !== "object" || v === null) return false;
+    const n2 = v;
+    return typeof n2.speed === "number" && typeof n2.reaction === "number" && typeof n2.tracking === "number";
+  }
+  async function requestUpdate(botDebugInfo) {
+    state.inFlight = true;
+    state.status = "pending";
+    const startedAt = performance.now();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), LLM_REQUEST_TIMEOUT_MS);
+    try {
+      const res = await fetch(`${OLLAMA_ENDPOINT}/api/generate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: OLLAMA_MODEL,
+          prompt: buildPrompt(botDebugInfo),
+          format: "json",
+          stream: false
+        }),
+        signal: controller.signal
+      });
+      if (!res.ok) throw new Error(`Ollama responded ${res.status}`);
+      const data = await res.json();
+      if (typeof data.response !== "string") {
+        throw new Error('Ollama response missing "response" string field');
+      }
+      const parsed = JSON.parse(data.response);
+      if (typeof parsed.commentary !== "string" || !isLlmBotNudge(parsed.botNudge)) {
+        throw new Error("LLM response failed shape validation");
+      }
+      state.lastCommentary = parsed.commentary;
+      state.lastNudge = {
+        speed: clamp(parsed.botNudge.speed, -1, 1),
+        reaction: clamp(parsed.botNudge.reaction, -1, 1),
+        tracking: clamp(parsed.botNudge.tracking, -1, 1)
+      };
+      state.status = "ok";
+      state.lastError = null;
+      console.debug("[llm-pong] LLM update applied", {
+        commentary: state.lastCommentary,
+        nudge: state.lastNudge
+      });
+    } catch (err) {
+      state.status = "error";
+      state.lastError = err instanceof Error ? err.message : String(err);
+      console.debug(
+        "[llm-pong] LLM update failed, keeping prior state:",
+        state.lastError
+      );
+    } finally {
+      clearTimeout(timeout);
+      state.lastLatencyMs = Math.round(performance.now() - startedAt);
+      state.inFlight = false;
+    }
+  }
+
   // src/metrics/overlay.ts
   var LINE = "rgba(122, 224, 165, 0.75)";
   var MARK = "rgba(122, 224, 165, 0.95)";
@@ -1710,7 +1829,7 @@
     function updateBotDrift() {
       const { currentWin, currentLoss } = getSnapshot().streaks;
       const net = currentWin - currentLoss;
-      botState.driftFraction = clamp(net / BOT_DRIFT_STREAK_SATURATION, -1, 1) * BOT_DRIFT_MAX_FRACTION;
+      botState.driftFraction = clamp2(net / BOT_DRIFT_STREAK_SATURATION, -1, 1) * BOT_DRIFT_MAX_FRACTION;
     }
     function getBotDebugInfo() {
       return {
@@ -1728,7 +1847,7 @@
       contactPlaneLeft: PADDLE_MARGIN + PADDLE_W + BALL_R,
       contactPlaneRight: W - PADDLE_MARGIN - PADDLE_W - BALL_R
     });
-    function clamp(v, min, max) {
+    function clamp2(v, min, max) {
       return Math.max(min, Math.min(max, v));
     }
     function serveBall(directionTowards) {
@@ -1843,7 +1962,7 @@
       const rect = canvas.getBoundingClientRect();
       const scale = H / rect.height;
       const y = (clientY - rect.top) * scale;
-      return clamp(y - PADDLE_H / 2, 0, H - PADDLE_H);
+      return clamp2(y - PADDLE_H / 2, 0, H - PADDLE_H);
     }
     function dragTo(clientY) {
       const paddle = playerSide === "left" ? left : right;
@@ -1925,7 +2044,7 @@
         let dy = 0;
         if (keysHeld.up) dy -= keySpeed * dt;
         if (keysHeld.down) dy += keySpeed * dt;
-        paddle.y = clamp(paddle.y + dy, 0, H - PADDLE_H);
+        paddle.y = clamp2(paddle.y + dy, 0, H - PADDLE_H);
       }
     }
     function updateBotPaddle(dt) {
@@ -1945,9 +2064,9 @@
         botState.lastBallVxSign = vxSign;
       }
       const rawTarget = ball.y - PADDLE_H / 2;
-      const lagAlpha = effReactionDelayMs > 0 ? clamp(dt / (effReactionDelayMs / 1e3), 0, 1) : 1;
+      const lagAlpha = effReactionDelayMs > 0 ? clamp2(dt / (effReactionDelayMs / 1e3), 0, 1) : 1;
       botState.perceivedY += (rawTarget - botState.perceivedY) * lagAlpha;
-      const target = clamp(
+      const target = clamp2(
         botState.perceivedY + botState.trackingError,
         0,
         H - PADDLE_H
@@ -1960,7 +2079,7 @@
       } else {
         bot.y += Math.sign(diff) * maxStep;
       }
-      bot.y = clamp(bot.y, 0, H - PADDLE_H);
+      bot.y = clamp2(bot.y, 0, H - PADDLE_H);
     }
     function step(dt) {
       updatePlayerPaddle(dt);
@@ -1992,7 +2111,7 @@
       if (!withinY) return;
       const relative = (ball.y - (paddle.y + PADDLE_H / 2)) / (PADDLE_H / 2);
       const bounceAngle = relative * (Math.PI / 3);
-      const speed = clamp(
+      const speed = clamp2(
         Math.hypot(ball.vx, ball.vy) + BALL_SPEED_STEP,
         BALL_BASE_SPEED,
         BALL_MAX_SPEED
@@ -2013,6 +2132,7 @@
       updateScoreLabels();
       onPoint(side, playerSide);
       updateBotDrift();
+      onRallyComplete(getBotDebugInfo());
       if (score[side] >= WIN_SCORE) {
         endGame(side);
       } else {

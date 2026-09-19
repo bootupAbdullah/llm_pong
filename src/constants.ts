@@ -49,3 +49,14 @@ export const BOT_TUNING: Record<Difficulty, BotTuning> = {
 // tier can never drift into its neighbour's range.
 export const BOT_DRIFT_STREAK_SATURATION = 3; // rallies won/lost in a row to hit max drift
 export const BOT_DRIFT_MAX_FRACTION = 0.15; // +/-15% of the tier's own values
+
+// LLM layer (Phase 4). See .claude/phase-4-handoff.md for the full design.
+// Direct browser -> Ollama fetch, no proxy. Endpoint/model are constants so
+// pointing at a different host or model doesn't touch llm.ts's logic.
+export const OLLAMA_ENDPOINT = 'http://akd-server1:11434';
+export const OLLAMA_MODEL = 'qwen2.5:3b';
+// Rallies to accumulate before firing one batched LLM request. First-guess,
+// matches BOT_DRIFT_STREAK_SATURATION so the codebase has one consistent
+// notion of "a short stretch of play" instead of two — tune later.
+export const LLM_BATCH_RALLIES = 3;
+export const LLM_REQUEST_TIMEOUT_MS = 8000;
