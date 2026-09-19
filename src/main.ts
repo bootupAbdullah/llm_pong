@@ -7,12 +7,14 @@ import { initDifficultyMenu } from './difficulty-menu';
 import { initGame } from './game';
 import * as metrics from './metrics/recorder';
 import { initDebugPanel } from './metrics/debug-panel';
+import { initCommentaryPanel } from './commentary-panel';
 
 const debug = window.location.hash.toLowerCase().includes('debug');
 
 initSettings();
 initDifficultyMenu();
 const gameApi = initGame({ debug });
+initCommentaryPanel();
 
 // Metrics recording is always on (later phases consume it live). The #debug
 // panel and the canvas prediction overlay are opt-in via the URL fragment.

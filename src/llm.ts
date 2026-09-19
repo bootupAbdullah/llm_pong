@@ -50,6 +50,15 @@ const state = {
   lastNudge: ZERO_NUDGE,
 };
 
+/** Single-subscriber hook for the commentary panel (Stage 2) — commentary
+ *  updates are rare, discrete events (roughly once per batch), so a callback
+ *  fits better here than the debug panel's poll-every-frame style. */
+let commentaryListener: ((text: string) => void) | null = null;
+
+export function subscribeCommentary(cb: (text: string) => void): void {
+  commentaryListener = cb;
+}
+
 function clamp(v: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, v));
 }
@@ -190,6 +199,7 @@ async function requestUpdate(botDebugInfo: BotDebugInfo): Promise<void> {
     };
     state.status = 'ok';
     state.lastError = null;
+    commentaryListener?.(state.lastCommentary);
     console.debug('[llm-pong] LLM update applied', {
       commentary: state.lastCommentary,
       nudge: state.lastNudge,

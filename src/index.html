@@ -434,6 +434,23 @@
     user-select: none;
   }
 
+  .commentary-panel {
+    margin-top: 10px;
+    padding: 8px 14px;
+    border: 1.5px solid var(--window-border);
+    background: rgba(38, 65, 92, 0.03);
+    box-sizing: border-box;
+    font-size: 0.78rem;
+    color: var(--ink);
+    min-height: 1.3em;
+    transition: opacity 0.15s ease;
+  }
+
+  .commentary-panel.empty {
+    opacity: 0;
+    visibility: hidden;
+  }
+
   .game-footer {
     display: flex;
     justify-content: flex-end;
@@ -766,6 +783,9 @@
         <div class="game-over-overlay" id="pauseOverlay">
           <div class="paused-text">Paused</div>
         </div>
+      </div>
+      <div class="commentary-panel empty" id="commentaryPanel">
+        <span id="commentaryText"></span>
       </div>
       <div class="game-footer">
         <div class="side-select">
