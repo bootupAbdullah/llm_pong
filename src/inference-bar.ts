@@ -18,18 +18,23 @@ const state = {
 
 let fillEl: HTMLDivElement | null = null;
 let lightEl: HTMLDivElement | null = null;
+let statusEl: HTMLSpanElement | null = null;
 
 function render(): void {
-  if (!fillEl || !lightEl) return;
+  if (!fillEl || !lightEl || !statusEl) return;
   const frac = Math.min(state.ralliesSinceThreshold / STUB_BATCH_RALLIES, 1);
+  const ready = state.status === 'pending';
   fillEl.style.height = `${frac * 100}%`;
-  fillEl.classList.toggle('ready', state.status === 'pending');
-  lightEl.classList.toggle('ready', state.status === 'pending');
+  fillEl.classList.toggle('ready', ready);
+  lightEl.classList.toggle('ready', ready);
+  statusEl.classList.toggle('ready', ready);
+  statusEl.textContent = ready ? 'Ready' : 'Gathering…';
 }
 
 export function initInferenceBar(): void {
   fillEl = byId<HTMLDivElement>('inferenceBarFill');
   lightEl = byId<HTMLDivElement>('inferenceBarLight');
+  statusEl = byId<HTMLSpanElement>('inferenceBarStatus');
   render();
 }
 
