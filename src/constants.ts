@@ -49,3 +49,10 @@ export const BOT_TUNING: Record<Difficulty, BotTuning> = {
 // tier can never drift into its neighbour's range.
 export const BOT_DRIFT_STREAK_SATURATION = 3; // rallies won/lost in a row to hit max drift
 export const BOT_DRIFT_MAX_FRACTION = 0.15; // +/-15% of the tier's own values
+
+// Phase 4.5 Stage 2: cosmetic inference-progress stub. Mirrors the shape of
+// Phase 4's real LLM_BATCH_RALLIES/status (src/llm.ts on phase-4-llm-layer,
+// not merged to main yet) so swapping this stub for real data later is a
+// data-source change, not a UI rewrite. See .claude/phase-4.5-handoff.md.
+export const STUB_BATCH_RALLIES = 3;
+export const STUB_INFERENCE_DELAY_MS = 1750; // simulated "call in flight" duration

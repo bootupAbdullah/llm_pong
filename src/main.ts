@@ -7,11 +7,13 @@ import { initDifficultyMenu } from './difficulty-menu';
 import { initGame } from './game';
 import * as metrics from './metrics/recorder';
 import { initDebugPanel } from './metrics/debug-panel';
+import { initInferenceBar } from './inference-bar';
 
 const debug = window.location.hash.toLowerCase().includes('debug');
 
 initSettings();
 initDifficultyMenu();
+initInferenceBar();
 const gameApi = initGame({ debug });
 
 // Metrics recording is always on (later phases consume it live). The #debug

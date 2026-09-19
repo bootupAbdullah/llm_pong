@@ -379,6 +379,81 @@
     opacity: 0.55;
   }
 
+  /* Phase 4.5 Stage 2: cosmetic inference-progress bar + status bulb. Pure
+     visualization over a stub counter (src/inference-bar.ts) -- not wired to
+     real LLM state yet, see phase-4.5-handoff.md. A genuine rectangular
+     block (not a hairline), standing to the immediate left of the game --
+     .game-area (a real flex row, not stacked in the page's vertical column)
+     is what actually puts it there; height matches .game-window's rendered
+     height (500px canvas + 6px border each side), same reference point
+     .slider-block already uses. */
+  .game-area {
+    position: relative;
+  }
+
+  /* Positioned out of flow so moving it doesn't shift .game-area's own
+     width/centering -- .game-area centers on .game-row alone, same as
+     before this bar existed. */
+  .inference-bar {
+    position: absolute;
+    top: 0;
+    right: calc(100% + 170px);
+    width: 30px;
+    height: 512px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .inference-bar-track {
+    flex: 1;
+    width: 100%;
+    display: flex;
+    flex-direction: column-reverse; /* fill grows upward, like a gauge */
+    border: 2px solid var(--window-border);
+    background: rgba(38, 65, 92, 0.06);
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.18);
+    overflow: hidden;
+  }
+
+  .inference-bar-fill {
+    width: 100%;
+    height: 0%;
+    background: repeating-linear-gradient(
+      135deg,
+      var(--accent),
+      var(--accent) 10px,
+      color-mix(in srgb, var(--accent) 80%, black) 10px,
+      color-mix(in srgb, var(--accent) 80%, black) 20px
+    );
+    transition: height 0.2s ease, background 0.2s ease;
+  }
+
+  .inference-bar-fill.ready {
+    background: #1c8a42;
+  }
+
+  /* One bulb that recolors red/green, flat CSS dot (not a glossy radial
+     highlight) -- red/green stay literal across every data-theme variant --
+     semantic stop/go status, not page chrome. */
+  .inference-bar-light {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    border-radius: 50%;
+    background: #c0392b;
+    border: 1px solid #7a2015;
+    box-shadow: 0 0 4px 1px rgba(192, 57, 43, 0.6);
+    transition: background 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+
+  .inference-bar-light.ready {
+    background: #1c8a42;
+    border-color: #0a7a2e;
+    box-shadow: 0 0 8px 2px rgba(28, 138, 66, 0.85);
+  }
+
   .game-row {
     display: flex;
     align-items: flex-start;
@@ -751,7 +826,15 @@
     </div>
   </div>
 
-  <div class="game-row" id="gameRow">
+  <div class="game-area">
+    <div class="inference-bar" id="inferenceBar" title="Gameplay data gathered toward the next AI commentary update">
+      <div class="inference-bar-track">
+        <div class="inference-bar-fill" id="inferenceBarFill"></div>
+      </div>
+      <div class="inference-bar-light" id="inferenceBarLight"></div>
+    </div>
+
+    <div class="game-row" id="gameRow">
     <div class="slider-block">
       <span class="label">Paddle</span>
       <input type="range" class="vertical-slider" id="paddleSlider" min="0" max="1000" value="500">
@@ -818,6 +901,7 @@
           <input type="range" class="key-sensitivity-slider" id="keySensitivitySlider" min="0" max="4" step="1" value="0" aria-label="Keyboard paddle sensitivity">
         </div>
       </div>
+    </div>
     </div>
   </div>
 </div>
@@ -918,6 +1002,8 @@
   };
   var BOT_DRIFT_STREAK_SATURATION = 3;
   var BOT_DRIFT_MAX_FRACTION = 0.15;
+  var STUB_BATCH_RALLIES = 3;
+  var STUB_INFERENCE_DELAY_MS = 1750;
 
   // src/difficulty.ts
   var STORAGE_KEY = "pongDifficulty";
@@ -1629,6 +1715,41 @@
     };
   }
 
+  // src/inference-bar.ts
+  var state = {
+    ralliesSinceThreshold: 0,
+    status: "idle"
+  };
+  var fillEl = null;
+  var lightEl = null;
+  function render() {
+    if (!fillEl || !lightEl) return;
+    const frac = Math.min(state.ralliesSinceThreshold / STUB_BATCH_RALLIES, 1);
+    fillEl.style.height = `${frac * 100}%`;
+    fillEl.classList.toggle("ready", state.status === "pending");
+    lightEl.classList.toggle("ready", state.status === "pending");
+  }
+  function initInferenceBar() {
+    fillEl = byId("inferenceBarFill");
+    lightEl = byId("inferenceBarLight");
+    render();
+  }
+  function onRallyComplete() {
+    if (state.status === "pending") return;
+    state.ralliesSinceThreshold += 1;
+    if (state.ralliesSinceThreshold >= STUB_BATCH_RALLIES) {
+      state.status = "pending";
+      render();
+      setTimeout(() => {
+        state.status = "idle";
+        state.ralliesSinceThreshold = 0;
+        render();
+      }, STUB_INFERENCE_DELAY_MS);
+      return;
+    }
+    render();
+  }
+
   // src/metrics/overlay.ts
   var LINE = "rgba(122, 224, 165, 0.75)";
   var MARK = "rgba(122, 224, 165, 0.95)";
@@ -2013,6 +2134,7 @@
       updateScoreLabels();
       onPoint(side, playerSide);
       updateBotDrift();
+      onRallyComplete();
       if (score[side] >= WIN_SCORE) {
         endGame(side);
       } else {
@@ -2388,19 +2510,20 @@
       }
     }
     document.body.appendChild(panel);
-    function render() {
+    function render2() {
       const s = getSnapshot();
       latestBotInfo = getBotDebugInfo();
       for (const { cell, get } of valueCells) cell.textContent = get(s);
     }
-    render();
-    window.setInterval(render, REFRESH_MS);
+    render2();
+    window.setInterval(render2, REFRESH_MS);
   }
 
   // src/main.ts
   var debug = window.location.hash.toLowerCase().includes("debug");
   initSettings();
   initDifficultyMenu();
+  initInferenceBar();
   var gameApi = initGame({ debug });
   if (debug) {
     initDebugPanel(gameApi.getBotDebugInfo);
