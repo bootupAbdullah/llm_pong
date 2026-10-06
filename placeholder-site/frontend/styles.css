@@ -1,0 +1,401 @@
+/* llmpong.com placeholder — values from placeholder-build-brief.md §4, §5, §7 (board 13). */
+
+:root {
+  --bg: #05070D;
+  --cyan: #00E5FF;
+  --green: #1FB651;
+  --text: #D6FBFF;
+  --dim: #7FA9B8;
+  --placeholder: #5F8796;
+  --input-bg: #050B12;
+  --display: Orbitron, sans-serif;
+  --body: Rajdhani, sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+}
+
+body {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  color: var(--text);
+  font-family: var(--body);
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+a:hover {
+  opacity: 0.75;
+}
+
+/* ---- background (§3) + dim layer (§4) -------------------------------------
+   Stacking: .bg (0) < .dim (1) < .stage and .footer (2).
+   Until bg.js runs the canvas is blank, so the #05070D page background shows. */
+
+.bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* Fills the window; bg.js gives the canvas a pixel size with the window's shape, so it is never stretched unevenly. */
+.bg-canvas {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  image-rendering: auto;
+}
+
+.dim {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: radial-gradient(ellipse 55% 60% at 50% 48%, rgba(5, 7, 13, 0.40) 0%, rgba(5, 7, 13, 0.70) 100%);
+}
+
+/* ---- card ---------------------------------------------------------------- */
+
+.stage {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px 16px;
+}
+
+.card {
+  width: min(540px, 100%);
+  padding: 40px 48px 34px;
+  border: 1px solid rgba(0, 229, 255, 0.45);
+  background: linear-gradient(180deg, rgba(12, 24, 36, 0.92) 0%, rgba(6, 13, 22, 0.94) 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.07),
+    inset 0 0 26px rgba(0, 229, 255, 0.08),
+    0 0 0 1px rgba(0, 229, 255, 0.08),
+    0 0 30px rgba(0, 229, 255, 0.16),
+    0 24px 60px rgba(0, 0, 0, 0.6);
+  clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%, 0 18px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+
+/* status line */
+.status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+/* Green = the game's complete-state BAR green on dark ("Neon -3"). */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow:
+    0 0 2px rgba(31, 182, 81, 0.95),
+    0 0 8px rgba(31, 182, 81, 0.6),
+    0 0 16px rgba(31, 182, 81, 0.32);
+  animation: pulse 0.9s ease-in-out infinite alternate;
+}
+
+@keyframes pulse {
+  from { opacity: 0.35; }
+  to   { opacity: 1; }
+}
+
+.status-label {
+  font-family: var(--display);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 5px;
+  color: var(--cyan);
+}
+
+/* wordmark */
+.wordmark {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 36px;
+  font-weight: 800;
+  letter-spacing: 4px;
+  line-height: 1.2;
+  color: var(--cyan);
+  text-shadow: 0 0 14px rgba(0, 229, 255, 0.6), 0 0 3px rgba(0, 229, 255, 0.8);
+}
+
+.wordmark-tld {
+  font-weight: 500;
+  color: var(--dim);
+}
+
+/* divider */
+.divider {
+  width: 64px;
+  height: 2px;
+  margin: 20px 0;
+  background: linear-gradient(90deg, rgba(0, 229, 255, 0), var(--cyan) 50%, rgba(0, 229, 255, 0));
+  box-shadow: 0 0 8px rgba(0, 229, 255, 0.5);
+}
+
+/* pitch */
+.pitch {
+  margin: 0;
+  max-width: 420px;
+  font-family: var(--body);
+  font-size: 20px;
+  font-weight: 500;
+  line-height: 1.35;
+  color: var(--text);
+}
+
+/* form */
+.waitlist {
+  display: flex;
+  gap: 10px;
+  width: 100%;
+  margin: 28px 0 0;
+}
+
+.waitlist-input {
+  flex: 1;
+  min-width: 0;
+  height: 46px;
+  padding: 0 14px;
+  border: 1px solid rgba(0, 229, 255, 0.35);
+  border-radius: 3px;
+  background: var(--input-bg);
+  color: var(--text);
+  font-family: var(--body);
+  font-size: 17px;
+  font-weight: 500;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.waitlist-input::placeholder {
+  color: var(--placeholder);
+  opacity: 1;
+}
+
+.waitlist-input:focus {
+  outline: none;
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 1px rgba(0, 229, 255, 0.35), 0 0 12px rgba(0, 229, 255, 0.35);
+}
+
+.waitlist-button {
+  height: 46px;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #3FF0FF 0%, #00C4E0 100%);
+  color: var(--bg);
+  font-family: var(--display);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 2px;
+  box-shadow:
+    inset 0 -1px 0 rgba(0, 60, 80, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    0 0 14px rgba(0, 229, 255, 0.45);
+  cursor: pointer;
+}
+
+.note {
+  margin: 12px 0 0;
+  font-family: var(--display);
+  font-size: 9px;
+  letter-spacing: 3px;
+  color: var(--dim);
+}
+
+/* ---- footer -------------------------------------------------------------- */
+
+.footer {
+  position: absolute;
+  z-index: 2;
+  right: 32px;
+  bottom: 24px;
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  font-family: var(--display);
+  font-size: 10px;
+  letter-spacing: 2px;
+  color: var(--dim);
+}
+
+/* ---- phone layouts (§7, board 15) -----------------------------------------
+   The sideways query matches QUERY_SIDEWAYS in bg.js. The upright card is for
+   upright screens under 600px only; bg.js uses the upright scene on every
+   upright screen (upright tablets keep the desktop card). */
+
+/* Upright (layout A) */
+@media (max-width: 599px) and (orientation: portrait) {
+  .card {
+    padding: 32px 22px 28px;
+    clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%, 0 14px);
+  }
+
+  .status {
+    margin-bottom: 14px;
+  }
+
+  .status-label {
+    font-size: 10px;
+  }
+
+  .wordmark {
+    font-size: 28px;
+    letter-spacing: 3px;
+  }
+
+  .divider {
+    width: 56px;
+    margin: 16px 0;
+  }
+
+  .pitch {
+    font-size: 18px;
+  }
+
+  .waitlist {
+    flex-direction: column;
+    margin-top: 22px;
+  }
+
+  .waitlist-input,
+  .waitlist-button {
+    flex: none;
+    width: 100%;
+  }
+
+  .note {
+    font-size: 8px;
+    letter-spacing: 2px;
+    line-height: 1.6;
+  }
+
+  /* Back in normal flow so it can never sit on top of the card; this also lifts
+     the card slightly above centre, as on the board. */
+  .footer {
+    position: relative;
+    right: auto;
+    bottom: auto;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 16px;
+    padding: 0 16px 30px;
+    font-size: 9px;
+  }
+}
+
+/* Sideways (layout B) */
+@media (max-height: 499px) and (orientation: landscape) {
+  .stage {
+    padding: 12px 16px;
+  }
+
+  .card {
+    padding: 22px 30px 20px;
+    clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%, 0 14px);
+  }
+
+  .status {
+    margin-bottom: 10px;
+  }
+
+  .status-label {
+    font-size: 10px;
+  }
+
+  .wordmark {
+    font-size: 24px;
+    letter-spacing: 3px;
+  }
+
+  .divider {
+    width: 56px;
+    margin: 12px 0;
+  }
+
+  .pitch {
+    max-width: none;
+    font-size: 16px;
+  }
+
+  .waitlist {
+    margin-top: 16px;
+  }
+
+  .note {
+    font-size: 8px;
+    letter-spacing: 2.5px;
+    line-height: 1.6;
+  }
+
+  .footer {
+    right: 28px;
+    bottom: 14px;
+    gap: 16px;
+    font-size: 9px;
+  }
+}
+
+/* Sideways on a very short phone: drop the divider and tighten before anything scrolls. */
+@media (max-height: 339px) and (orientation: landscape) {
+  .card {
+    padding: 16px 26px 14px;
+  }
+
+  .status {
+    margin-bottom: 6px;
+  }
+
+  .divider {
+    display: none;
+  }
+
+  .pitch {
+    margin-top: 6px;
+  }
+
+  .waitlist {
+    margin-top: 10px;
+  }
+
+  .note {
+    margin-top: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .status-dot {
+    animation: none;
+  }
+}

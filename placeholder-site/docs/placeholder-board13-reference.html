@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LLMpong.com — coming soon (board 13 reference)</title>
+<!-- STANDALONE REFERENCE for the placeholder build. Open directly in a browser.
+     This is board 13 from the design canvas, converted to a plain page so it runs on its own.
+     Desktop only, fixed 1280x820 like the board. The real page adds the phone layout,
+     the real form submit and the head/social tags (see placeholder-build-brief.md). -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:inherit;text-decoration:none}a:hover{opacity:.75}
+.pulse{animation:pulse .9s ease-in-out infinite alternate}
+@keyframes pulse{from{opacity:.35}to{opacity:1}}
+.ph-in::placeholder{color:#5F8796}
+.ph-in:focus{outline:none;border-color:#00E5FF !important;box-shadow:0 0 0 1px rgba(0,229,255,0.35),0 0 12px rgba(0,229,255,0.35) !important}
+</style>
+<style>html,body{background:#05070D}</style>
+</head>
+<body>
+<div style="position: relative; width: 1280px; height: 820px; overflow: hidden; background-color: #05070D; color: #D6FBFF; font-family: Rajdhani, sans-serif">
+<!-- BACKGROUND: the only pixels that exist are a tiny canvas (about 1/8 size), already blurred inside the canvas.
+     The browser just stretches it to full size. Turning off CSS changes nothing: there is no sharp image on the page. -->
+<canvas id="bg" width="160" height="103" style="position: absolute; left: 0; top: 0; width: 1280px; height: 820px; image-rendering: auto"></canvas>
+<div style="position: absolute; left: 0; top: 0; width: 1280px; height: 820px; pointer-events: none; background: radial-gradient(ellipse 55% 60% at 50% 48%, rgba(5,7,13,0.4) 0%, rgba(5,7,13,0.7) 100%)"></div>
+
+<div style="position: absolute; left: 370px; top: 210px; width: 540px; box-sizing: border-box; padding: 40px 48px 34px; border: 1px solid rgba(0,229,255,0.45); background: linear-gradient(180deg, rgba(12,24,36,0.92) 0%, rgba(6,13,22,0.94) 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), inset 0 0 26px rgba(0,229,255,0.08), 0 0 0 1px rgba(0,229,255,0.08), 0 0 30px rgba(0,229,255,0.16), 0 24px 60px rgba(0,0,0,0.6); clip-path: polygon(18px 0, calc(100% - 18px) 0, 100% 18px, 100% 100%, 0 100%, 0 18px); display: flex; flex-direction: column; align-items: center; text-align: center">
+<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 18px">
+<span class="pulse" style="width: 8px; height: 8px; border-radius: 50%; background: #00E5FF; box-shadow: 0 0 2px rgba(0,229,255,0.95), 0 0 8px rgba(0,229,255,0.6), 0 0 16px rgba(0,229,255,0.32)"></span>
+<span style="font-family: Orbitron, sans-serif; font-size: 11px; font-weight: 700; letter-spacing: 5px; color: #00E5FF">COMING SOON</span>
+</div>
+<div style="font-family: Orbitron, sans-serif; font-weight: 800; font-size: 36px; letter-spacing: 4px; color: #00E5FF; text-shadow: 0 0 14px rgba(0,229,255,0.6), 0 0 3px rgba(0,229,255,0.8)">LLMPONG<span style="color: #7FA9B8; font-weight: 500">.com</span></div>
+<div style="width: 64px; height: 2px; margin: 20px 0 20px; background: linear-gradient(90deg, rgba(0,229,255,0), #00E5FF 50%, rgba(0,229,255,0)); box-shadow: 0 0 8px rgba(0,229,255,0.5)"></div>
+<div style="font-family: Rajdhani, sans-serif; font-size: 20px; font-weight: 500; line-height: 1.35; color: #D6FBFF; max-width: 420px">Play Pong against a bot that learns from you. A language model on a home server studies how you play and retunes your opponent.</div>
+<div style="display: flex; gap: 10px; width: 100%; margin-top: 28px">
+<input class="ph-in" type="email" required placeholder="you@example.com" aria-label="Email address" style="flex: 1; min-width: 0; height: 46px; box-sizing: border-box; padding: 0 14px; border: 1px solid rgba(0,229,255,0.35); border-radius: 3px; background: #050B12; color: #D6FBFF; font-family: Rajdhani, sans-serif; font-size: 17px; font-weight: 500; box-shadow: inset 0 1px 3px rgba(0,0,0,0.6)">
+<button type="button" id="notify" style="height: 46px; padding: 0 20px; border: 0; border-radius: 3px; background: linear-gradient(180deg, #3FF0FF 0%, #00C4E0 100%); color: #05070D; font-family: Orbitron, sans-serif; font-size: 11px; font-weight: 800; letter-spacing: 2px; box-shadow: inset 0 -1px 0 rgba(0,60,80,0.35), inset 0 1px 0 rgba(255,255,255,0.35), 0 0 14px rgba(0,229,255,0.45); cursor: pointer">NOTIFY ME</button>
+</div>
+<span id="note" aria-live="polite" style="margin-top: 12px; font-family: Orbitron, sans-serif; font-size: 9px; letter-spacing: 3px; color: #7FA9B8">ONE EMAIL WHEN INFERENCE GOES LIVE · NO SPAM</span>
+
+</div>
+
+<div style="position: absolute; right: 32px; bottom: 24px; display: flex; gap: 18px; align-items: center; font-family: Orbitron, sans-serif; font-size: 10px; letter-spacing: 2px; color: #7FA9B8">
+<a href="#">AKDDEV.CO</a>
+<a href="#">LINKEDIN</a>
+<a href="#">BLUESKY</a>
+</div>
+
+</div>
+<script>
+class Background {
+  constructor() { this.props = { resolution: '1/8', softness: 'softer', view: 'final' }; }
+  // ---- SHIP-SAFE BACKGROUND -------------------------------------------------
+  // 1) Everything is drawn into a tiny offscreen canvas (1/8 of 1280x820 by default).
+  // 2) That tiny image is shrunk further and stretched back (a cheap blur that works in every browser).
+  // 3) The visible <canvas> is itself tiny; CSS only scales it up. No sharp pixels ever exist.
+  // The scene is deliberately rough: blocks, bars and dots only. No text, icons, badge figure or panel detail,
+  // so even someone who edits this code to draw at full size gets a sketch, not the design.
+  div() { return ({ '1/8': 8, '1/6': 6, '1/10': 10 })[this.props.resolution ?? '1/8'] || 8; }
+  componentDidMount() {
+    this.s = { x: 640, y: 330, vx: 300, vy: 120, py: 330, by: 330, sP: 7, sB: 5, flash: 0, flashCol: '0,229,255',
+      serve: 0.8, miss: null, hits: 0, sparks: [], t: 0, hitP: 9, hitB: 9 };
+    this.a = document.createElement('canvas');   // sharp-ish tiny scene
+    this.b = document.createElement('canvas');   // even tinier, for the blur pass
+    this.last = null;
+    const tick = (ts) => {
+      if (this.last === null) this.last = ts;
+      let dt = Math.min((ts - this.last) / 1000, 0.05); this.last = ts;
+      if (this.props.paused) dt = 0;
+      if (dt > 0) this.step(dt);
+      this.draw();
+      this.raf = requestAnimationFrame(tick);
+    };
+    this.raf = requestAnimationFrame(tick);
+  }
+  componentWillUnmount() { if (this.raf) cancelAnimationFrame(this.raf); }
+  // playfield in page coordinates: 340..940 x 140..520
+  step(dt) {
+    const s = this.s; s.t += dt; s.flash = Math.max(0, s.flash - dt * 1.4); s.hitP += dt; s.hitB += dt;
+    s.sparks = s.sparks.filter((p) => (p.life -= dt) > 0);
+    for (const p of s.sparks) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.96; p.vy *= 0.96; }
+    if (s.serve > 0) {
+      s.serve -= dt; s.py += (330 - s.py) * Math.min(1, dt * 4); s.by += (330 - s.by) * Math.min(1, dt * 4);
+      if (s.serve <= 0) { s.x = 640; s.y = 330; s.vx = Math.random() < 0.5 ? 300 : -300; s.vy = (Math.random() * 2 - 1) * 160; s.miss = null; s.hits = 0; }
+      return;
+    }
+    s.x += s.vx * dt; s.y += s.vy * dt;
+    if (s.y < 148) { s.y = 148; s.vy = Math.abs(s.vy); }
+    if (s.y > 512) { s.y = 512; s.vy = -Math.abs(s.vy); }
+    const hit = (side) => {
+      s.vx = -s.vx; s.vy = (Math.random() * 2 - 1) * 230; s.hits += 1;
+      if (side === 'p') s.hitP = 0; else s.hitB = 0;
+      const col = side === 'p' ? '0,229,255' : '255,138,31';
+      for (let i = 0; i < 7; i++) s.sparks.push({ x: s.x, y: s.y, vx: (side === 'p' ? 1 : -1) * (40 + Math.random() * 120), vy: (Math.random() * 2 - 1) * 140, life: 0.5, col });
+      s.miss = (s.hits >= 3 && Math.random() < 0.3) ? (side === 'p' ? 'b' : 'p') : null;
+    };
+    if (s.vx < 0 && s.x < 370 && s.x > 358 && s.miss !== 'p') { s.x = 370; hit('p'); }
+    if (s.vx > 0 && s.x > 910 && s.x < 922 && s.miss !== 'b') { s.x = 910; hit('b'); }
+    if (s.x < 330 || s.x > 950) {
+      const botScored = s.x < 330;
+      if (botScored) s.sB = (s.sB + 1) % 11; else s.sP = (s.sP + 1) % 11;
+      s.flash = 1; s.flashCol = botScored ? '255,138,31' : '0,229,255'; s.serve = 1.0;
+      return;
+    }
+    const tp = s.miss === 'p' ? s.y + (s.y > 330 ? -100 : 100) : s.y;
+    const tb = s.miss === 'b' ? s.y + (s.y > 330 ? -100 : 100) : s.y;
+    s.py += (tp - s.py) * Math.min(1, dt * 9); s.by += (tb - s.by) * Math.min(1, dt * 7);
+  }
+  draw() {
+    const cv = document.getElementById('bg');
+    if (!cv || !this.s) return;
+    const d = this.div(), W = Math.round(1280 / d), H = Math.round(820 / d);
+    for (const c of [cv, this.a]) if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+    const soft = ({ soft: 2, softer: 3, softest: 4 })[this.props.softness ?? 'softer'] || 3;
+    const bw = Math.max(8, Math.round(W / soft)), bh = Math.max(5, Math.round(H / soft));
+    if (this.b.width !== bw || this.b.height !== bh) { this.b.width = bw; this.b.height = bh; }
+    const g = this.a.getContext('2d'), s = this.s, k = 1 / d;
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.fillStyle = '#05070D'; g.fillRect(0, 0, W, H);
+    g.setTransform(k, 0, 0, k, 0, 0);   // draw in page coordinates; everything lands at tiny size
+    const glow = (rgb, a, blurPx) => { g.shadowColor = 'rgba(' + rgb + ',' + a + ')'; g.shadowBlur = blurPx; };
+    const noGlow = () => { g.shadowBlur = 0; };
+    const rect = (x, y, w, h, fill) => { g.fillStyle = fill; g.fillRect(x, y, w, h); };
+    const frame = (x, y, w, h, rgb, a, lw) => { g.strokeStyle = 'rgba(' + rgb + ',' + a + ')'; g.lineWidth = lw; g.strokeRect(x, y, w, h); };
+    // grid haze + centre glow
+    g.strokeStyle = 'rgba(0,229,255,0.10)'; g.lineWidth = 3;
+    for (let x = 0; x <= 1280; x += 40) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, 820); g.stroke(); }
+    for (let y = 0; y <= 820; y += 40) { g.beginPath(); g.moveTo(0, y); g.lineTo(1280, y); g.stroke(); }
+    const rg = g.createRadialGradient(640, 370, 40, 640, 370, 640);
+    const pulse = 0.10 + 0.04 * Math.sin(s.t * 0.9);
+    rg.addColorStop(0, 'rgba(0,229,255,' + pulse + ')'); rg.addColorStop(1, 'rgba(0,229,255,0)');
+    g.fillStyle = rg; g.fillRect(0, 0, 1280, 820);
+    // header blocks (no text): wordmark bar, theme switch, gear
+    rect(32, 32, 190, 18, 'rgba(0,229,255,0.55)');
+    rect(1080, 22, 112, 44, 'rgba(12,23,34,1)'); rect(1082, 24, 54, 40, 'rgba(0,229,255,0.7)');
+    rect(1204, 22, 44, 44, 'rgba(12,23,34,1)');
+    // SCORE panel: block + two glowing number blobs
+    rect(460, 30, 360, 94, '#0A1622'); frame(460, 30, 360, 94, '0,229,255', 0.45, 2);
+    glow('0,229,255', 0.9, 3); rect(570, 58, 46, 34, 'rgba(0,229,255,0.85)');
+    glow('255,138,31', 0.9, 3); rect(664, 58, 46, 34, 'rgba(255,138,31,0.85)'); noGlow();
+    // BAR + badge (complete = green), status dot
+    glow('46,224,108', 0.9, 3);
+    rect(220, 166, 32, 266, 'rgba(40,201,94,0.9)');
+    g.fillStyle = 'rgba(40,201,94,0.9)'; g.beginPath(); g.arc(236, 456, 24, 0, Math.PI * 2); g.fill();
+    rect(186, 116, 9, 9, '#2EE06C'); noGlow();
+    // SLIDER track + handle
+    rect(307, 140, 2, 380, 'rgba(0,229,255,0.28)');
+    glow('0,229,255', 0.8, 2); rect(296, 268 + (s.py - 330) * 0.3, 24, 80, 'rgba(0,229,255,0.6)'); noGlow();
+    // playfield: dark field, cyan frame (flashes the scorer's colour), dashed net
+    rect(340, 140, 600, 380, '#02040A');
+    const fl = s.flash, frgb = fl > 0 ? s.flashCol : '0,229,255';
+    glow(frgb, 0.8 + 0.2 * fl, 3 + 3 * fl); frame(341, 141, 598, 378, frgb, 0.9, 3 + 2 * fl); noGlow();
+    g.strokeStyle = 'rgba(0,229,255,0.28)'; g.lineWidth = 3; g.setLineDash([11, 7]);
+    g.beginPath(); g.moveTo(640, 152); g.lineTo(640, 508); g.stroke(); g.setLineDash([]);
+    // paddles (hit = brighter)
+    const pk = Math.max(0, 1 - s.hitP / 0.3), bk = Math.max(0, 1 - s.hitB / 0.3);
+    const clampY = (v) => Math.max(148, Math.min(512 - 76, v - 38));
+    glow('0,229,255', 0.8, 3 + 3 * pk); rect(356, clampY(s.py), 8, 76, '#00E5FF');
+    glow('255,138,31', 0.8, 3 + 3 * bk); rect(916, clampY(s.by), 8, 76, '#FF8A1F'); noGlow();
+    // ball + tail + sparks
+    if (s.serve <= 0) {
+      const sp = Math.hypot(s.vx, s.vy) || 1;
+      g.strokeStyle = 'rgba(0,229,255,0.35)'; g.lineWidth = 6; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(s.x, s.y); g.lineTo(s.x - s.vx / sp * 150, s.y - s.vy / sp * 150); g.stroke();
+      glow('0,229,255', 0.9, 4); rect(s.x - 7, s.y - 7, 14, 14, '#FFFFFF'); noGlow();
+    }
+    for (const p of s.sparks) { g.fillStyle = 'rgba(' + p.col + ',' + Math.min(1, p.life * 2.4) + ')'; g.fillRect(p.x - 4, p.y - 4, 8, 8); }
+    // TRAIL + moving green dots
+    g.strokeStyle = 'rgba(0,229,255,0.3)'; g.lineWidth = 3;
+    g.beginPath(); g.moveTo(236, 482); g.lineTo(236, 639); g.lineTo(340, 639); g.stroke();
+    glow('57,240,128', 0.9, 2);
+    for (let i = 0; i < 3; i++) {
+      const L1 = 157, L2 = 104, u = ((s.t / 1.6) + i / 3) % 1 * (L1 + L2);
+      const x = u < L1 ? 236 : 236 + (u - L1), y = u < L1 ? 482 + u : 639;
+      g.fillStyle = 'rgb(57,240,128)'; g.beginPath(); g.arc(x, y, 6, 0, Math.PI * 2); g.fill();
+    }
+    noGlow();
+    // MODES: three blocks, first one selected
+    for (let i = 0; i < 3; i++) {
+      const x = 340 + i * 204;
+      rect(x, 560, 192, 46, '#0C1722');
+      if (i === 0) { glow('0,229,255', 0.7, 3); frame(x + 1, 561, 190, 44, '0,229,255', 0.95, 3); noGlow(); }
+      else frame(x, 560, 192, 46, '0,229,255', 0.25, 2);
+    }
+    // PROC bar with moving sweep
+    rect(340, 626, 600, 26, '#050B12'); glow('0,229,255', 0.7, 3); frame(341, 627, 598, 24, '0,229,255', 0.9, 3);
+    const sw = 340 + (0.5 + 0.5 * Math.sin(s.t * 1.4)) * 456;
+    const sg = g.createLinearGradient(sw, 0, sw + 140, 0);
+    sg.addColorStop(0, 'rgba(0,229,255,0)'); sg.addColorStop(0.5, 'rgba(0,229,255,0.9)'); sg.addColorStop(1, 'rgba(0,229,255,0)');
+    g.fillStyle = sg; g.fillRect(sw, 630, 140, 18); noGlow();
+    // COMMENT block
+    rect(340, 694, 600, 62, '#0C1722'); frame(340, 694, 600, 62, '0,229,255', 0.25, 2);
+    // blur pass: shrink further, stretch back (smoothing on) -> soft everywhere, any browser
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    const proof = (this.props.view ?? 'final') === 'proof (raw pixels)';
+    const bctx = this.b.getContext('2d'); bctx.imageSmoothingEnabled = true; bctx.imageSmoothingQuality = 'high';
+    bctx.clearRect(0, 0, bw, bh); bctx.drawImage(this.a, 0, 0, bw, bh);
+    const out = cv.getContext('2d'); out.imageSmoothingEnabled = true; out.imageSmoothingQuality = 'high';
+    out.clearRect(0, 0, W, H);
+    out.drawImage(proof ? this.a : this.b, 0, 0, W, H);
+  }
+}
+const bgAnim = new Background();
+if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+  bgAnim.s = { x: 640, y: 330, vx: 300, vy: 120, py: 330, by: 330, sP: 7, sB: 5, flash: 0, flashCol: '0,229,255', serve: 0, miss: null, hits: 0, sparks: [], t: 0, hitP: 9, hitB: 9 };
+  bgAnim.a = document.createElement('canvas'); bgAnim.b = document.createElement('canvas'); bgAnim.draw();
+} else {
+  bgAnim.componentDidMount();
+}
+// demo-only form state (the real page POSTs to WAITLIST_URL)
+let sent = false;
+document.getElementById('notify').addEventListener('click', () => {
+  sent = !sent;
+  document.getElementById('notify').textContent = sent ? 'ON THE LIST' : 'NOTIFY ME';
+  const note = document.getElementById('note');
+  note.textContent = sent ? 'THANKS — ONE EMAIL WHEN IT GOES LIVE' : 'ONE EMAIL WHEN INFERENCE GOES LIVE · NO SPAM';
+  note.style.color = sent ? '#2EE06C' : '#7FA9B8';
+});
+</script>
+</body>
+</html>

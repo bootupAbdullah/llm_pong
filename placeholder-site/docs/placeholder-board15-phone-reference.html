@@ -1,0 +1,255 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>LLMpong.com placeholder, phone (board 15 reference)</title>
+<!-- STANDALONE REFERENCE for the phone versions of the placeholder. Open directly in a browser.
+     Board 15 from the design canvas, converted to a plain page: two phone frames side by side,
+     upright (layout A, vertical court) and sideways (layout B). Background method is identical to board 13:
+     tiny canvas, shrink-and-stretch blur, rough shapes only. drawP() = upright scene, drawL() = sideways scene,
+     drawCourt() + step() = the self-playing rally for either court direction. See placeholder-build-brief.md section 7. -->
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet"><style>body{margin:0}a{color:inherit}.pulse{animation:pulse .9s ease-in-out infinite alternate}@keyframes pulse{from{opacity:.35}to{opacity:1}}.ph-in::placeholder{color:#5F8796}.ph-in:focus{outline:none;border-color:#00E5FF !important}</style></head><body><div style="position: relative; width: 1460px; height: 1040px; background: #03050A; color: #D6FBFF; font-family: Rajdhani, sans-serif; overflow: hidden">
+<div style="position: absolute; left: 40px; top: 24px; font-family: Orbitron, sans-serif; font-size: 11px; letter-spacing: 3px; color: #7FA9B8">LLMPONG.COM PLACEHOLDER · PHONE · SHIP-SAFE BLUR (SAME METHOD AS BOARD 13) · BACKGROUND FOLLOWS BOARD 14 A / B</div>
+<div style="position: absolute; left: 40px; top: 70px; width: 390px; height: 844px; box-sizing: border-box; border-radius: 42px; border: 3px solid #1B2A36; box-shadow: 0 0 0 8px #0A1118, 0 30px 60px rgba(0,0,0,0.6); overflow: hidden; background: #05070D">
+<canvas id="bgP" width="10" height="10" style="position: absolute; left: 0; top: 0; width: 384px; height: 838px; image-rendering: auto"></canvas>
+
+<div style="position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse 70% 60% at 50% 48%, rgba(5,7,13,0.4) 0%, rgba(5,7,13,0.7) 100%)"></div>
+<div style="position: absolute; left: 16px; right: 16px; top: 50%; transform: translateY(-54%); padding: 32px 22px 28px; box-sizing: border-box; border: 1px solid rgba(0,229,255,0.45); background: linear-gradient(180deg, rgba(12,24,36,0.92) 0%, rgba(6,13,22,0.94) 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), inset 0 0 26px rgba(0,229,255,0.08), 0 0 0 1px rgba(0,229,255,0.08), 0 0 30px rgba(0,229,255,0.16), 0 24px 60px rgba(0,0,0,0.6); clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%, 0 14px); display: flex; flex-direction: column; align-items: center; text-align: center">
+<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 14px">
+<span class="pulse" style="width: 8px; height: 8px; border-radius: 50%; background: #00E5FF; box-shadow: 0 0 2px rgba(0,229,255,0.95), 0 0 8px rgba(0,229,255,0.6), 0 0 16px rgba(0,229,255,0.32)"></span>
+<span style="font-family: Orbitron, sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 5px; color: #00E5FF">COMING SOON</span>
+</div>
+<div style="font-family: Orbitron, sans-serif; font-weight: 800; font-size: 28px; letter-spacing: 3px; color: #00E5FF; text-shadow: 0 0 14px rgba(0,229,255,0.6), 0 0 3px rgba(0,229,255,0.8)">LLMPONG<span style="color: #7FA9B8; font-weight: 500">.com</span></div>
+<div style="width: 56px; height: 2px; margin: 16px 0; background: linear-gradient(90deg, rgba(0,229,255,0), #00E5FF 50%, rgba(0,229,255,0)); box-shadow: 0 0 8px rgba(0,229,255,0.5)"></div>
+<div style="font-family: Rajdhani, sans-serif; font-size: 18px; font-weight: 500; line-height: 1.35; color: #D6FBFF">Play Pong against a bot that learns from you. A language model on a home server studies how you play and retunes your opponent.</div>
+
+<div style="display: flex; flex-direction: column; gap: 10px; width: 100%; margin-top: 22px">
+<input class="ph-in" type="email" placeholder="you@example.com" aria-label="Email address" style="flex: none; width: 100%; min-width: 0; height: 46px; box-sizing: border-box; padding: 0 14px; border: 1px solid rgba(0,229,255,0.35); border-radius: 3px; background: #050B12; color: #D6FBFF; font-family: Rajdhani, sans-serif; font-size: 17px; font-weight: 500; box-shadow: inset 0 1px 3px rgba(0,0,0,0.6)">
+<button type="button"  style="width: 100%; height: 46px; padding: 0 20px; border: 0; border-radius: 3px; background: linear-gradient(180deg, #3FF0FF 0%, #00C4E0 100%); color: #05070D; font-family: Orbitron, sans-serif; font-size: 11px; font-weight: 800; letter-spacing: 2px; box-shadow: inset 0 -1px 0 rgba(0,60,80,0.35), inset 0 1px 0 rgba(255,255,255,0.35), 0 0 14px rgba(0,229,255,0.45); cursor: pointer">NOTIFY ME</button>
+</div>
+<span style="margin-top: 12px; font-family: Orbitron, sans-serif; font-size: 8px; letter-spacing: 2px; line-height: 1.6; color: #7FA9B8">ONE EMAIL WHEN INFERENCE GOES LIVE · NO SPAM</span>
+
+</div>
+<div style="position: absolute; left: 0; right: 0; bottom: 30px; justify-content: center; display: flex; gap: 16px; font-family: Orbitron, sans-serif; font-size: 9px; letter-spacing: 2px; color: #7FA9B8"><a>AKDDEV.CO</a><a>LINKEDIN</a><a>BLUESKY</a></div>
+
+<div style="position: absolute; left: 135.0px; top: 832px; width: 120px; height: 5px; border-radius: 3px; background: rgba(214,251,255,0.35)"></div>
+</div>
+<div style="position: absolute; left: 40px; top: 940px; width: 390px"><span style="font-family: Orbitron, sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 2px; color: #00E5FF">UPRIGHT · LAYOUT A</span><div style="margin-top: 8px; font-size: 15px; line-height: 1.35">Vertical court behind the card. Card full width with 16px margins; email and button stacked.</div></div>
+<div style="position: absolute; left: 520px; top: 70px; width: 844px; height: 390px; box-sizing: border-box; border-radius: 42px; border: 3px solid #1B2A36; box-shadow: 0 0 0 8px #0A1118, 0 30px 60px rgba(0,0,0,0.6); overflow: hidden; background: #05070D">
+<canvas id="bgL" width="10" height="10" style="position: absolute; left: 0; top: 0; width: 838px; height: 384px; image-rendering: auto"></canvas>
+
+<div style="position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse 70% 60% at 50% 48%, rgba(5,7,13,0.4) 0%, rgba(5,7,13,0.7) 100%)"></div>
+<div style="position: absolute; left: 50%; top: 50%; transform: translate(-50%, -54%); width: 540px; padding: 22px 30px 20px; box-sizing: border-box; border: 1px solid rgba(0,229,255,0.45); background: linear-gradient(180deg, rgba(12,24,36,0.92) 0%, rgba(6,13,22,0.94) 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), inset 0 0 26px rgba(0,229,255,0.08), 0 0 0 1px rgba(0,229,255,0.08), 0 0 30px rgba(0,229,255,0.16), 0 24px 60px rgba(0,0,0,0.6); clip-path: polygon(14px 0, calc(100% - 14px) 0, 100% 14px, 100% 100%, 0 100%, 0 14px); display: flex; flex-direction: column; align-items: center; text-align: center">
+<div style="display: flex; align-items: center; gap: 8px; margin-bottom: 10px">
+<span class="pulse" style="width: 8px; height: 8px; border-radius: 50%; background: #00E5FF; box-shadow: 0 0 2px rgba(0,229,255,0.95), 0 0 8px rgba(0,229,255,0.6), 0 0 16px rgba(0,229,255,0.32)"></span>
+<span style="font-family: Orbitron, sans-serif; font-size: 10px; font-weight: 700; letter-spacing: 5px; color: #00E5FF">COMING SOON</span>
+</div>
+<div style="font-family: Orbitron, sans-serif; font-weight: 800; font-size: 24px; letter-spacing: 3px; color: #00E5FF; text-shadow: 0 0 14px rgba(0,229,255,0.6), 0 0 3px rgba(0,229,255,0.8)">LLMPONG<span style="color: #7FA9B8; font-weight: 500">.com</span></div>
+<div style="width: 56px; height: 2px; margin: 12px 0; background: linear-gradient(90deg, rgba(0,229,255,0), #00E5FF 50%, rgba(0,229,255,0)); box-shadow: 0 0 8px rgba(0,229,255,0.5)"></div>
+<div style="font-family: Rajdhani, sans-serif; font-size: 16px; font-weight: 500; line-height: 1.35; color: #D6FBFF">Play Pong against a bot that learns from you. A language model on a home server studies how you play and retunes your opponent.</div>
+
+<div style="display: flex; flex-direction: row; gap: 10px; width: 100%; margin-top: 16px">
+<input class="ph-in" type="email" placeholder="you@example.com" aria-label="Email address" style="flex: 1; min-width: 0; height: 46px; box-sizing: border-box; padding: 0 14px; border: 1px solid rgba(0,229,255,0.35); border-radius: 3px; background: #050B12; color: #D6FBFF; font-family: Rajdhani, sans-serif; font-size: 17px; font-weight: 500; box-shadow: inset 0 1px 3px rgba(0,0,0,0.6)">
+<button type="button"  style=" height: 46px; padding: 0 20px; border: 0; border-radius: 3px; background: linear-gradient(180deg, #3FF0FF 0%, #00C4E0 100%); color: #05070D; font-family: Orbitron, sans-serif; font-size: 11px; font-weight: 800; letter-spacing: 2px; box-shadow: inset 0 -1px 0 rgba(0,60,80,0.35), inset 0 1px 0 rgba(255,255,255,0.35), 0 0 14px rgba(0,229,255,0.45); cursor: pointer">NOTIFY ME</button>
+</div>
+<span style="margin-top: 12px; font-family: Orbitron, sans-serif; font-size: 8px; letter-spacing: 2.5px; line-height: 1.6; color: #7FA9B8">ONE EMAIL WHEN INFERENCE GOES LIVE · NO SPAM</span>
+
+</div>
+<div style="position: absolute; right: 28px; bottom: 14px; display: flex; gap: 16px; font-family: Orbitron, sans-serif; font-size: 9px; letter-spacing: 2px; color: #7FA9B8"><a>AKDDEV.CO</a><a>LINKEDIN</a><a>BLUESKY</a></div>
+
+<div style="position: absolute; left: 830px; top: 135.0px; width: 5px; height: 120px; border-radius: 3px; background: rgba(214,251,255,0.35)"></div>
+</div>
+<div style="position: absolute; left: 520px; top: 490px; width: 844px"><span style="font-family: Orbitron, sans-serif; font-size: 13px; font-weight: 700; letter-spacing: 2px; color: #00E5FF">SIDEWAYS · LAYOUT B</span><div style="margin-top: 8px; font-size: 15px; line-height: 1.35">Desktop-shaped court behind a shorter card; email and button side by side. Turning the phone switches between the two.</div></div>
+</div><script>class DCLogic{constructor(){this.props={};this.state={}}setState(){}}
+class Component extends DCLogic {
+  // Two ship-safe backgrounds, one per phone orientation, drawn exactly like board 13:
+  // a tiny canvas, a second shrink-and-stretch pass for the blur, rough shapes only (no text, icons or detail).
+  layouts() {
+    return {
+      P: { W: 390, H: 844, vertical: true, court: [16, 232, 336, 404], draw: (g, s, h) => this.drawP(g, s, h) },
+      L: { W: 844, H: 390, vertical: false, court: [200, 54, 444, 282], draw: (g, s, h) => this.drawL(g, s, h) }
+    };
+  }
+  div() { return ({ '1/8': 8, '1/6': 6, '1/10': 10 })[this.props.resolution ?? '1/8'] || 8; }
+  newSim() {
+    return { u: 0.5, v: 0.5, du: 0.55, dv: 0.25, pp: 0.5, bp: 0.5, flash: 0, flashCol: '0,229,255', serve: 0.6,
+      miss: null, hits: 0, sparks: [], t: Math.random() * 10, hitP: 9, hitB: 9 };
+  }
+  componentDidMount() {
+    this.sims = { P: this.newSim(), L: this.newSim() };
+    this.bufs = { P: [document.createElement('canvas'), document.createElement('canvas')], L: [document.createElement('canvas'), document.createElement('canvas')] };
+    this.last = null;
+    const tick = (ts) => {
+      if (this.last === null) this.last = ts;
+      let dt = Math.min((ts - this.last) / 1000, 0.05); this.last = ts;
+      if (this.props.paused) dt = 0;
+      for (const k of ['P', 'L']) { if (dt > 0) this.step(this.sims[k], dt); this.draw(k); }
+      this.raf = requestAnimationFrame(tick);
+    };
+    this.raf = requestAnimationFrame(tick);
+  }
+  componentWillUnmount() { if (this.raf) cancelAnimationFrame(this.raf); }
+  // sim in court units: u = travel axis 0 (player) .. 1 (bot), v = across 0..1
+  step(s, dt) {
+    s.t += dt; s.flash = Math.max(0, s.flash - dt * 1.4); s.hitP += dt; s.hitB += dt;
+    s.sparks = s.sparks.filter((p) => (p.life -= dt) > 0);
+    for (const p of s.sparks) { p.u += p.du * dt; p.v += p.dv * dt; p.du *= 0.95; p.dv *= 0.95; }
+    if (s.serve > 0) {
+      s.serve -= dt; s.pp += (0.5 - s.pp) * Math.min(1, dt * 4); s.bp += (0.5 - s.bp) * Math.min(1, dt * 4);
+      if (s.serve <= 0) { s.u = 0.5; s.v = 0.5; s.du = Math.random() < 0.5 ? 0.55 : -0.55; s.dv = (Math.random() * 2 - 1) * 0.35; s.miss = null; s.hits = 0; }
+      return;
+    }
+    s.u += s.du * dt; s.v += s.dv * dt;
+    if (s.v < 0.03) { s.v = 0.03; s.dv = Math.abs(s.dv); }
+    if (s.v > 0.97) { s.v = 0.97; s.dv = -Math.abs(s.dv); }
+    const hit = (side) => {
+      s.du = -s.du; s.dv = (Math.random() * 2 - 1) * 0.5; s.hits += 1;
+      if (side === 'p') s.hitP = 0; else s.hitB = 0;
+      const col = side === 'p' ? '0,229,255' : '255,138,31';
+      for (let i = 0; i < 7; i++) s.sparks.push({ u: s.u, v: s.v, du: (side === 'p' ? 1 : -1) * (0.08 + Math.random() * 0.2), dv: (Math.random() * 2 - 1) * 0.3, life: 0.5, col });
+      s.miss = (s.hits >= 3 && Math.random() < 0.3) ? (side === 'p' ? 'b' : 'p') : null;
+    };
+    if (s.du < 0 && s.u < 0.06 && s.u > 0.03 && s.miss !== 'p') { s.u = 0.06; hit('p'); }
+    if (s.du > 0 && s.u > 0.94 && s.u < 0.97 && s.miss !== 'b') { s.u = 0.94; hit('b'); }
+    if (s.u < -0.03 || s.u > 1.03) {
+      const botScored = s.u < 0;
+      s.flash = 1; s.flashCol = botScored ? '255,138,31' : '0,229,255'; s.serve = 1.0; return;
+    }
+    const tp = s.miss === 'p' ? s.v + (s.v > 0.5 ? -0.3 : 0.3) : s.v;
+    const tb = s.miss === 'b' ? s.v + (s.v > 0.5 ? -0.3 : 0.3) : s.v;
+    s.pp += (tp - s.pp) * Math.min(1, dt * 9); s.bp += (tb - s.bp) * Math.min(1, dt * 7);
+  }
+  draw(k) {
+    const cv = document.getElementById('bg' + k);
+    if (!cv || !this.sims) return;
+    const L = this.layouts()[k], s = this.sims[k], d = this.div();
+    const W = Math.round(L.W / d), H = Math.round(L.H / d);
+    const [a, b] = this.bufs[k];
+    for (const c of [cv, a]) if (c.width !== W || c.height !== H) { c.width = W; c.height = H; }
+    const soft = ({ soft: 2, softer: 3, softest: 4 })[this.props.softness ?? 'softer'] || 3;
+    const bw = Math.max(6, Math.round(W / soft)), bh = Math.max(6, Math.round(H / soft));
+    if (b.width !== bw || b.height !== bh) { b.width = bw; b.height = bh; }
+    const g = a.getContext('2d');
+    g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = '#05070D'; g.fillRect(0, 0, W, H);
+    g.setTransform(1 / d, 0, 0, 1 / d, 0, 0);
+    const h = this.helpers(g);
+    // grid haze + centre glow
+    g.strokeStyle = 'rgba(0,229,255,0.10)'; g.lineWidth = 3;
+    for (let x = 0; x <= L.W; x += 24) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, L.H); g.stroke(); }
+    for (let y = 0; y <= L.H; y += 24) { g.beginPath(); g.moveTo(0, y); g.lineTo(L.W, y); g.stroke(); }
+    const [cx, cy, cw, ch] = L.court;
+    const rg = g.createRadialGradient(cx + cw / 2, cy + ch / 2, 20, cx + cw / 2, cy + ch / 2, Math.max(L.W, L.H) * 0.6);
+    rg.addColorStop(0, 'rgba(0,229,255,' + (0.10 + 0.04 * Math.sin(s.t * 0.9)) + ')'); rg.addColorStop(1, 'rgba(0,229,255,0)');
+    g.fillStyle = rg; g.fillRect(0, 0, L.W, L.H);
+    L.draw(g, s, h);
+    this.drawCourt(g, s, h, L);
+    // blur pass
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    const proof = (this.props.view ?? 'final') === 'proof (raw pixels)';
+    const bc = b.getContext('2d'); bc.imageSmoothingEnabled = true; bc.imageSmoothingQuality = 'high';
+    bc.clearRect(0, 0, bw, bh); bc.drawImage(a, 0, 0, bw, bh);
+    const out = cv.getContext('2d'); out.imageSmoothingEnabled = true; out.imageSmoothingQuality = 'high';
+    out.clearRect(0, 0, W, H); out.drawImage(proof ? a : b, 0, 0, W, H);
+  }
+  helpers(g) {
+    return {
+      glow: (rgb, a, px) => { g.shadowColor = 'rgba(' + rgb + ',' + a + ')'; g.shadowBlur = px; },
+      no: () => { g.shadowBlur = 0; },
+      rect: (x, y, w, hh, f) => { g.fillStyle = f; g.fillRect(x, y, w, hh); },
+      frame: (x, y, w, hh, rgb, a, lw) => { g.strokeStyle = 'rgba(' + rgb + ',' + a + ')'; g.lineWidth = lw; g.strokeRect(x, y, w, hh); },
+      dot: (x, y, r, f) => { g.fillStyle = f; g.beginPath(); g.arc(x, y, r, 0, Math.PI * 2); g.fill(); },
+      line: (pts, rgb, a, lw) => { g.strokeStyle = 'rgba(' + rgb + ',' + a + ')'; g.lineWidth = lw; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.stroke(); }
+    };
+  }
+  sweep(g, h, x, y, w, hh, t) {
+    h.rect(x, y, w, hh, '#050B12'); h.glow('0,229,255', 0.7, 3); h.frame(x + 1, y + 1, w - 2, hh - 2, '0,229,255', 0.9, 3);
+    const sw = x + (0.5 + 0.5 * Math.sin(t * 1.4)) * (w - w * 0.25);
+    const sg = g.createLinearGradient(sw, 0, sw + w * 0.25, 0);
+    sg.addColorStop(0, 'rgba(0,229,255,0)'); sg.addColorStop(0.5, 'rgba(0,229,255,0.9)'); sg.addColorStop(1, 'rgba(0,229,255,0)');
+    g.fillStyle = sg; g.fillRect(sw, y + 3, w * 0.25, hh - 6); h.no();
+  }
+  trailDots(h, pts, t) {
+    h.line(pts, '0,229,255', 0.3, 3);
+    const segs = []; let tot = 0;
+    for (let i = 1; i < pts.length; i++) { const l = Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]); segs.push(l); tot += l; }
+    h.glow('57,240,128', 0.9, 2);
+    for (let i = 0; i < 3; i++) {
+      let u = ((t / 1.6) + i / 3) % 1 * tot, j = 0;
+      while (j < segs.length - 1 && u > segs[j]) { u -= segs[j]; j++; }
+      const f = u / segs[j], x = pts[j][0] + (pts[j + 1][0] - pts[j][0]) * f, y = pts[j][1] + (pts[j + 1][1] - pts[j][1]) * f;
+      h.dot(x, y, 5, 'rgb(57,240,128)');
+    }
+    h.no();
+  }
+  drawP(g, s, h) {     // upright phone, layout A (board 14)
+    h.rect(16, 56, 120, 14, 'rgba(0,229,255,0.55)'); h.rect(338, 50, 36, 36, '#0C1722');
+    h.rect(16, 100, 358, 56, '#0A1622'); h.frame(16, 100, 358, 56, '0,229,255', 0.45, 2);
+    h.glow('0,229,255', 0.9, 3); h.rect(78, 112, 34, 30, 'rgba(0,229,255,0.85)');
+    h.glow('255,138,31', 0.9, 3); h.rect(278, 112, 34, 30, 'rgba(255,138,31,0.85)'); h.no();
+    h.glow('46,224,108', 0.9, 3);
+    h.rect(170, 172, 140, 8, 'rgba(46,224,108,0.35)');
+    h.rect(52, 194, 290, 20, 'rgba(40,201,94,0.9)'); h.dot(34, 204, 16, 'rgba(40,201,94,0.9)'); h.no();
+    h.rect(16, 666, 163, 38, '#0C1722'); h.glow('0,229,255', 0.7, 3); h.frame(17, 667, 161, 36, '0,229,255', 0.95, 3); h.no();
+    h.rect(189, 666, 163, 38, '#0C1722'); h.frame(189, 666, 163, 38, '0,229,255', 0.25, 2);
+    this.sweep(g, h, 16, 720, 336, 18, s.t);
+    h.rect(16, 772, 358, 52, '#0C1722'); h.frame(16, 772, 358, 52, '0,229,255', 0.25, 2);
+    this.trailDots(h, [[344, 204], [370, 204], [370, 729], [352, 729]], s.t);
+  }
+  drawL(g, s, h) {     // sideways phone, layout B (board 14)
+    h.rect(62, 22, 90, 10, 'rgba(0,229,255,0.55)'); h.rect(760, 10, 32, 32, '#0C1722');
+    h.rect(232, 10, 380, 36, '#0A1622'); h.frame(232, 10, 380, 36, '0,229,255', 0.45, 2);
+    h.glow('0,229,255', 0.9, 3); h.rect(270, 16, 28, 24, 'rgba(0,229,255,0.85)');
+    h.glow('255,138,31', 0.9, 3); h.rect(546, 16, 28, 24, 'rgba(255,138,31,0.85)'); h.no();
+    h.glow('46,224,108', 0.9, 3);
+    h.rect(88, 84, 26, 200, 'rgba(40,201,94,0.9)'); h.dot(101, 302, 18, 'rgba(40,201,94,0.9)'); h.dot(66, 56, 4, '#2EE06C'); h.no();
+    h.rect(660, 70, 132, 36, '#0C1722'); h.glow('0,229,255', 0.7, 3); h.frame(661, 71, 130, 34, '0,229,255', 0.95, 3); h.no();
+    h.rect(660, 116, 132, 36, '#0C1722'); h.frame(660, 116, 132, 36, '0,229,255', 0.25, 2);
+    h.rect(660, 168, 132, 168, '#0C1722'); h.frame(660, 168, 132, 168, '0,229,255', 0.25, 2);
+    this.sweep(g, h, 200, 346, 300, 14, s.t);
+    this.trailDots(h, [[101, 322], [101, 353], [200, 353]], s.t);
+  }
+  drawCourt(g, s, h, L) {
+    const [cx, cy, cw, ch] = L.court, V = L.vertical;
+    const len = V ? ch : cw, wid = V ? cw : ch;
+    const map = (u, v) => V ? [cx + v * wid, cy + len - u * len] : [cx + u * len, cy + v * wid];
+    h.rect(cx, cy, cw, ch, '#02040A');
+    const fl = s.flash, frgb = fl > 0 ? s.flashCol : '0,229,255';
+    h.glow(frgb, 0.8 + 0.2 * fl, 3 + 3 * fl); h.frame(cx + 1, cy + 1, cw - 2, ch - 2, frgb, 0.9, 3 + 2 * fl); h.no();
+    g.setLineDash([11, 7]);
+    h.line(V ? [[cx + 10, cy + ch / 2], [cx + cw - 10, cy + ch / 2]] : [[cx + cw / 2, cy + 10], [cx + cw / 2, cy + ch - 10]], '0,229,255', 0.28, 3);
+    g.setLineDash([]);
+    const pl = 0.2 * wid, pt = 8;
+    const pk = Math.max(0, 1 - s.hitP / 0.3), bk = Math.max(0, 1 - s.hitB / 0.3);
+    const clampV = (v) => Math.max(0.02, Math.min(0.98 - pl / wid, v - pl / wid / 2));
+    const paddle = (u, v, rgb, fill, k) => {
+      const [x, y] = map(u, clampV(v));
+      h.glow(rgb, 0.8, 3 + 3 * k);
+      if (V) h.rect(x, y - pt / 2, pl, pt, fill); else h.rect(x - pt / 2, y, pt, pl, fill);
+      h.no();
+    };
+    paddle(0.04, s.pp, '0,229,255', '#00E5FF', pk);
+    paddle(0.96, s.bp, '255,138,31', '#FF8A1F', bk);
+    if (s.serve <= 0) {
+      const [bx, by] = map(s.u, s.v), sp = Math.hypot(s.du, s.dv) || 1;
+      const [tx, ty] = map(s.u - s.du / sp * 0.3, s.v - s.dv / sp * 0.3 * len / wid);
+      g.lineCap = 'round'; h.line([[bx, by], [tx, ty]], '0,229,255', 0.35, 6);
+      h.glow('0,229,255', 0.9, 4); h.rect(bx - 6, by - 6, 12, 12, '#FFFFFF'); h.no();
+    }
+    for (const p of s.sparks) { const [x, y] = map(p.u, p.v); h.rect(x - 4, y - 4, 8, 8, 'rgba(' + p.col + ',' + Math.min(1, p.life * 2.4) + ')'); }
+  }
+  renderVals() {
+    const view = this.props.view ?? 'final';
+    const dim = ({ light: [0.25, 0.55], medium: [0.4, 0.7], heavy: [0.55, 0.82] })[this.props.phDim ?? 'medium'] || [0.4, 0.7];
+    const sent = !!(this.state && this.state.sent);
+    return {
+      ph: {
+        card: view === 'final',
+        render: view === 'proof (raw pixels)' ? 'pixelated' : 'auto',
+        dimCenter: dim[0], dimEdge: dim[1],
+        form: this.props.phForm ?? true,
+        pitch: 'Play Pong against a bot that learns from you. A language model on a home server studies how you play and retunes your opponent.',
+        btn: sent ? 'ON THE LIST' : 'NOTIFY ME',
+        note: sent ? 'THANKS — ONE EMAIL WHEN IT GOES LIVE' : 'ONE EMAIL WHEN INFERENCE GOES LIVE · NO SPAM',
+        noteColor: sent ? '#2EE06C' : '#7FA9B8',
+        submit: () => this.setState({ sent: !sent })
+      }
+    };
+  }
+}
+const c=new Component();c.props={};c.componentDidMount();let sent=false;document.querySelectorAll('button').forEach(b=>b.addEventListener('click',()=>{sent=!sent;document.querySelectorAll('button').forEach(x=>x.textContent=sent?'ON THE LIST':'NOTIFY ME');}));</script></body></html>

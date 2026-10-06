@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LLMpong.com — coming soon</title>
+<meta name="description" content="Play Pong against a bot that learns from you. A language model on a home server studies how you play and retunes your opponent.">
+<meta name="theme-color" content="#05070D">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="LLMpong.com — coming soon">
+<meta property="og:description" content="Play Pong against a bot that learns from you. A language model on a home server studies how you play and retunes your opponent.">
+<meta property="og:url" content="https://llmpong.com">
+<meta property="og:image" content="https://llmpong.com/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;800&family=Rajdhani:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="styles.css">
+<script src="bg.js" defer></script>
+</head>
+<body>
+
+<!-- Background: a 160x103 canvas, blurred in its own pixels; CSS only stretches it. -->
+<div class="bg" aria-hidden="true">
+  <canvas class="bg-canvas" id="bg" width="160" height="103"></canvas>
+</div>
+<div class="dim" aria-hidden="true"></div>
+
+<main class="stage">
+  <section class="card" aria-labelledby="wordmark">
+    <div class="status">
+      <span class="status-dot" aria-hidden="true"></span>
+      <span class="status-label">COMING SOON</span>
+    </div>
+
+    <h1 class="wordmark" id="wordmark">LLMPONG<span class="wordmark-tld">.com</span></h1>
+
+    <div class="divider" aria-hidden="true"></div>
+
+    <p class="pitch">Play Pong against a bot that learns from you. A language model on a home server studies how you play and retunes your opponent.</p>
+
+    <form class="waitlist" id="waitlist">
+      <input class="waitlist-input" id="email" name="email" type="email" required
+             placeholder="you@example.com" aria-label="Email address" autocomplete="email">
+      <button class="waitlist-button" id="notify" type="submit">NOTIFY ME</button>
+    </form>
+    <p class="note" id="note" aria-live="polite">ONE EMAIL WHEN INFERENCE GOES LIVE · NO SPAM</p>
+  </section>
+</main>
+
+<footer class="footer">
+  <a href="https://akddev.co/" target="_blank" rel="noopener">AKDDEV.CO</a>
+  <a href="https://www.linkedin.com/in/abdullahdswe" target="_blank" rel="noopener">LINKEDIN</a>
+  <a href="https://bsky.app/profile/layinthegrass.bsky.social" target="_blank" rel="noopener">BLUESKY</a>
+</footer>
+
+</body>
+</html>
