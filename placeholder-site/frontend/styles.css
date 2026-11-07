@@ -234,6 +234,13 @@ a:hover {
   color: var(--dim);
 }
 
+/* Form switch (§6 SHOW_FORM = false): "form-off" on the card hides the form and its note.
+   The card stays centred, so it drops about 40px on its own. */
+.form-off .waitlist,
+.form-off .note {
+  display: none;
+}
+
 /* ---- footer -------------------------------------------------------------- */
 
 .footer {
